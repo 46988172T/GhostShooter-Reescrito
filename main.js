@@ -956,13 +956,20 @@ var Gamepads;
 })(Gamepads || (Gamepads = {}));
 /// <reference path="phaser/phaser.d.ts"/>
 /// <reference path="joypad/GamePad.ts"/>
+var game = PIXI.game;
 window.onload = function () {
-    var game = new ShooterGame();
+    new ShooterGame();
 };
 var ShooterGame = (function (_super) {
     __extends(ShooterGame, _super);
     function ShooterGame() {
         _super.call(this, 800, 480, Phaser.CANVAS, 'gameDiv');
+        this.nextFire = 0;
+        this.PLAYER_ACCELERATION = 500;
+        this.PLAYER_MAX_SPEED = 300;
+        this.PLAYER_DRAG = 600;
+        this.FIRE_RATE = 200;
+        this.BULLET_SPEED = 800;
         this.state.add('main', mainState);
         this.state.start('main');
     }
@@ -975,69 +982,267 @@ var mainState = (function (_super) {
     }
     mainState.prototype.preload = function () {
         _super.prototype.preload.call(this);
+        this.load.image('bg', 'assets/bg.png');
+        this.load.image('player', 'assets/survivor1_machine.png');
+        this.load.image('bullet', 'assets/bulletBeigeSilver_outline.png');
+        this.load.image('zombie1', 'assets/zoimbie1_hold.png');
+        this.load.image('zombie2', 'assets/zombie2_hold.png');
+        this.load.image('robot', 'assets/robot1_hold.png');
+        this.load.image('explosion', 'assets/smokeWhite0.png');
+        this.load.image('explosion2', 'assets/smokeWhite1.png');
+        this.load.image('explosion3', 'assets/smokeWhite2.png');
+        this.load.tilemap('tilemap', 'assets/tiles.json', null, Phaser.Tilemap.TILED_JSON);
+        this.load.image('tiles', 'assets/tilesheet_complete.png');
+        this.load.image('joystick_base', 'assets/transparentDark05.png');
+        this.load.image('joystick_segment', 'assets/transparentDark09.png');
+        this.load.image('joystick_knob', 'assets/transparentDark49.png');
+        this.physics.startSystem(Phaser.Physics.ARCADE);
+        if (this.game.device.desktop) {
+            this.game.cursors = this.input.keyboard.createCursorKeys();
+        }
+        else {
+            this.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+            this.scale.pageAlignHorizontally = true;
+            this.scale.pageAlignVertically = true;
+            this.scale.pageAlignHorizontally = true;
+            this.scale.pageAlignVertically = true;
+            this.scale.forceOrientation(true);
+            this.scale.startFullScreen(false);
+        }
     };
     mainState.prototype.create = function () {
         _super.prototype.create.call(this);
+        this.createTilemap();
+        this.createWalls();
+        this.createBackground();
+        this.createExplosions();
+        this.createPlayer();
+        this.setupCamera();
+        if (!this.game.device.desktop) {
+            this.createVirtualJoystick();
+        }
+    };
+    // Creació de parets i fons.
+    mainState.prototype.createTilemap = function () {
+        this.game.tilemap = this.game.add.tilemap('tilemap');
+        this.game.tilemap.addTilesetImage('tilesheet_complete', 'tiles');
+    };
+    mainState.prototype.createWalls = function () {
+        this.game.walls = this.game.tilemap.createLayer('walls');
+        this.game.walls.x = this.game.world.centerX;
+        this.game.walls.y = this.game.world.centerY;
+        this.game.walls.resizeWorld();
+        this.game.tilemap.setCollisionBetween(1, 195, true, 'walls');
+    };
+    ;
+    mainState.prototype.createBackground = function () {
+        this.game.background = this.game.tilemap.createLayer('background');
+        this.game.background.x = this.game.world.centerX;
+        this.game.background.y = this.game.world.centerY;
+    };
+    ;
+    // Creació d'explosions.
+    mainState.prototype.createExplosions = function () {
+        var _this = this;
+        this.game.explosions = this.add.group();
+        this.game.explosions.createMultiple(20, 'explosion');
+        this.game.explosions.setAll('anchor.x', 0.5);
+        this.game.explosions.setAll('anchor.y', 0.5);
+        this.game.explosions.forEach(function (explosion) {
+            explosion.loadTexture(_this.rnd.pick(['explosion', 'explosion2', 'explosion3']));
+        }, this);
+    };
+    ;
+    // Creació del jugador
+    mainState.prototype.createPlayer = function () {
+        var player = new Player(this.game, this.world.centerX, this.world.centerY, 'player', 0);
+        this.add.existing(player);
+    };
+    mainState.prototype.setupCamera = function () {
+        this.camera.follow(this.game.player);
+    };
+    ;
+    //Creació de gamepad si no es juga a un pc.
+    mainState.prototype.createVirtualJoystick = function () {
+        this.game.gamepad = new Gamepads.GamePad(this.game, Gamepads.GamepadType.DOUBLE_STICK);
+    };
+    ;
+    mainState.prototype.rotateWithRightStick = function () {
+        var speed = this.game.gamepad.stick2.speed;
+        if (Math.abs(speed.x) + Math.abs(speed.y) > 20) {
+            var rotatePos = new Phaser.Point(this.game.player.x + speed.x, this.game.player.y + speed.y);
+            this.game.player.rotation = this.physics.arcade.angleToXY(this.game.player, rotatePos.x, rotatePos.y);
+            this.fire();
+        }
+    };
+    mainState.prototype.fireWithRightStick = function () {
+        //this.gamepad.stick2.
+    };
+    mainState.prototype.fireWhenButtonClicked = function () {
+        if (this.input.activePointer.isDown) {
+            this.fire();
+        }
+    };
+    ;
+    mainState.prototype.rotatePlayerToPointer = function () {
+        this.game.player.rotation = this.physics.arcade.angleToPointer(this.game.player, this.input.activePointer);
+    };
+    ;
+    mainState.prototype.movePlayer = function () {
+        var moveWithKeyboard = function () {
+            if (this.game.cursors.left.isDown ||
+                this.input.keyboard.isDown(Phaser.Keyboard.A)) {
+                this.game.player.body.acceleration.x = -this.game.PLAYER_ACCELERATION;
+            }
+            else if (this.game.cursors.right.isDown ||
+                this.input.keyboard.isDown(Phaser.Keyboard.D)) {
+                this.game.player.body.acceleration.x = this.game.PLAYER_ACCELERATION;
+            }
+            else if (this.game.cursors.up.isDown ||
+                this.input.keyboard.isDown(Phaser.Keyboard.W)) {
+                this.game.player.body.acceleration.y = -this.game.PLAYER_ACCELERATION;
+            }
+            else if (this.game.cursors.down.isDown ||
+                this.input.keyboard.isDown(Phaser.Keyboard.S)) {
+                this.game.player.body.acceleration.y = this.game.PLAYER_ACCELERATION;
+            }
+            else {
+            }
+        };
+        var moveWithVirtualJoystick = function () {
+            if (this.game.gamepad.stick1.cursors.left) {
+                this.game.player.body.acceleration.x = -this.game.PLAYER_ACCELERATION;
+            }
+            if (this.game.gamepad.stick1.cursors.right) {
+                this.game.player.body.acceleration.x = this.game.PLAYER_ACCELERATION;
+            }
+            else if (this.gamepad.stick1.cursors.up) {
+                this.game.player.body.acceleration.y = -this.game.PLAYER_ACCELERATION;
+            }
+            else if (this.gamepad.stick1.cursors.down) {
+                this.game.player.body.acceleration.y = this.game.PLAYER_ACCELERATION;
+            }
+            else {
+            }
+        };
+        if (this.game.device.desktop) {
+            moveWithKeyboard.call(this);
+        }
+        else {
+            moveWithVirtualJoystick.call(this);
+        }
+    };
+    ;
+    mainState.prototype.fire = function () {
+        if (this.time.now > this.game.nextFire) {
+            var bullet = this.game.bullets.getFirstDead();
+            if (bullet) {
+                var length = this.game.player.width * 0.5 + 20;
+                var x = this.game.player.x + (Math.cos(this.game.player.rotation) * length);
+                var y = this.game.player.y + (Math.sin(this.game.player.rotation) * length);
+                bullet.reset(x, y);
+                this.explosion(x, y);
+                bullet.angle = this.game.player.angle;
+                var velocity = this.game.physics.arcade.velocityFromRotation(bullet.rotation, this.game.BULLET_SPEED);
+                bullet.body.velocity.setTo(velocity.x, velocity.y);
+                this.game.nextFire = this.time.now + this.game.FIRE_RATE;
+            }
+        }
+    };
+    mainState.prototype.explosion = function (x, y) {
+        var explosion = this.game.explosions.getFirstDead();
+        if (explosion) {
+            explosion.reset(x - this.rnd.integerInRange(0, 5) + this.rnd.integerInRange(0, 5), y - this.rnd.integerInRange(0, 5) + this.rnd.integerInRange(0, 5));
+            explosion.alpha = 0.6;
+            explosion.angle = this.rnd.angle();
+            explosion.scale.setTo(this.rnd.realInRange(0.5, 0.75));
+            this.add.tween(explosion.scale).to({ x: 0, y: 0 }, 500).start();
+            var tween = this.add.tween(explosion).to({ alpha: 0 }, 500);
+            tween.onComplete.add(function () {
+                explosion.kill();
+            });
+            tween.start();
+        }
     };
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
+        this.movePlayer();
+        if (this.game.device.desktop) {
+            this.rotatePlayerToPointer();
+            this.fireWhenButtonClicked();
+        }
+        else {
+            this.rotateWithRightStick();
+            this.fireWithRightStick();
+        }
     };
     return mainState;
 })(Phaser.State);
+//Creem la classe PLAYER perque ens servirà per poder fer el OBSERVER.
 var Player = (function (_super) {
     __extends(Player, _super);
-    function Player() {
-        _super.apply(this, arguments);
+    function Player(game, x, y, key, frame) {
+        _super.call(this, game, x, y, key, frame);
+        this.game = game;
+        this.score = 0;
+        this.player_lives = 3;
+        this.player_max_lives = this.player_lives;
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.body.maxVelocity.setTo(this.game.PLAYER_MAX_SPEED, this.game.PLAYER_MAX_SPEED);
+        this.body.collideWorldBounds = true;
+        this.body.drag.setTo(this.game.PLAYER_DRAG, this.game.PLAYER_DRAG);
     }
     return Player;
 })(Phaser.Sprite);
 // FACTORY: Creació de monstres
-var Monster = (function (_super) {
-    __extends(Monster, _super);
-    function Monster(game, x, y) {
-        _super.call(this, game, x, y);
-        this.MONSTER_HEALTH = 0;
+/*class Monster extends Phaser.Sprite{
+
+    game:ShooterGame;
+    MONSTER_HEALTH = 0;
+    MONSTER_SPEED:number;
+
+    constructor(game:ShooterGame, x:number, y:number){
+        super(game, x,y);
         this.game = game;
         this.game.physics.enable(this, Phaser.Physics.ARCADE);
         this.body.enableBody = true;
-        this.anchor.setTo(0.5, 0.5);
+        this.anchor.setTo(0.5,0.5);
         this.angle = game.rnd.angle();
         this.checkWorldBounds = true;
     }
-    Monster.prototype.update = function () {
-        _super.prototype.update.call(this);
+    update():void{
+        super.update();
         this.events.onOutOfBounds.add(this.resetMonster, this);
         this.game.physics.arcade.velocityFromAngle(this.angle, this.MONSTER_SPEED, this.body.velocity);
-    };
-    Monster.prototype.resetMonster = function (monster) {
-        monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
-    };
-    return Monster;
-})(Phaser.Sprite);
-var MonsterFactory = (function () {
-    function MonsterFactory() {
     }
-    return MonsterFactory;
-})();
-var Robot = (function (_super) {
-    __extends(Robot, _super);
-    function Robot() {
-        _super.apply(this, arguments);
+
+    resetMonster(monster:Phaser.Sprite) {
+        monster.rotation = this.game.physics.arcade.angleBetween(
+            monster,
+            this.game.player
+        );
     }
-    return Robot;
-})(Monster);
-var Zombie1 = (function (_super) {
-    __extends(Zombie1, _super);
-    function Zombie1() {
-        _super.apply(this, arguments);
-    }
-    return Zombie1;
-})(Monster);
-var Zombie2 = (function (_super) {
-    __extends(Zombie2, _super);
-    function Zombie2() {
-        _super.apply(this, arguments);
-    }
-    return Zombie2;
-})(Monster);
+}
+
+class MonsterFactory{
+
+}
+
+class Robot extends Monster implements atacEspecial{
+
+}
+
+class Zombie1 extends Monster implements atacEspecial{
+
+}
+
+class Zombie2 extends Monster implements atacEspecial{
+
+}
+
+//STRATEGY: Els zombies fan coses diferents.
+
+interface atacEspecial {
+
+}*/
 //# sourceMappingURL=main.js.map
