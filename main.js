@@ -1017,6 +1017,8 @@ var mainState = (function (_super) {
         this.createBackground();
         this.createPlayer();
         this.setupCamera();
+        this.createExplosions();
+        this.createBullets();
         if (!this.game.device.desktop) {
         }
     };
@@ -1098,15 +1100,82 @@ var mainState = (function (_super) {
         this.game.player.rotation = this.physics.arcade.angleToPointer(this.game.player, this.input.activePointer);
     };
     ;
+    /* Shots*/
+    mainState.prototype.fire = function () {
+        if (this.time.now > this.game.nextFire) {
+            var bullet = this.game.bullets.getFirstDead();
+            if (bullet) {
+                var length = this.game.player.width * 0.5 + 20;
+                var x = this.game.player.x + (Math.cos(this.game.player.rotation) * length);
+                var y = this.game.player.y + (Math.sin(this.game.player.rotation) * length);
+                bullet.reset(x, y);
+                this.explosion(x, y);
+                bullet.angle = this.game.player.angle;
+                var velocity = this.game.physics.arcade.velocityFromRotation(bullet.rotation, this.game.BULLET_SPEED);
+                bullet.body.velocity.setTo(velocity.x, velocity.y);
+                this.game.nextFire = this.time.now + this.game.FIRE_RATE;
+            }
+        }
+    };
+    ;
+    mainState.prototype.fireWhenButtonClicked = function () {
+        if (this.input.activePointer.isDown) {
+            this.fire();
+        }
+    };
+    ;
+    /*Creació d'explosions*/
+    mainState.prototype.createExplosions = function () {
+        var _this = this;
+        this.game.explosions = this.add.group();
+        this.game.explosions.createMultiple(20, 'explosion');
+        this.game.explosions.setAll('anchor.x', 0.5);
+        this.game.explosions.setAll('anchor.y', 0.5);
+        this.game.explosions.forEach(function (explosion) {
+            explosion.loadTexture(_this.rnd.pick(['explosion', 'explosion2', 'explosion3']));
+        }, this);
+    };
+    ;
+    mainState.prototype.explosion = function (x, y) {
+        var explosion = this.game.explosions.getFirstDead();
+        if (explosion) {
+            explosion.reset(x - this.rnd.integerInRange(0, 5) + this.rnd.integerInRange(0, 5), y - this.rnd.integerInRange(0, 5) + this.rnd.integerInRange(0, 5));
+            explosion.alpha = 0.6;
+            explosion.angle = this.rnd.angle();
+            explosion.scale.setTo(this.rnd.realInRange(0.5, 0.75));
+            this.add.tween(explosion.scale).to({ x: 0, y: 0 }, 500).start();
+            var tween = this.add.tween(explosion).to({ alpha: 0 }, 500);
+            tween.onComplete.add(function () {
+                explosion.kill();
+            });
+            tween.start();
+        }
+    };
+    ;
+    /*Creació de bullets*/
+    mainState.prototype.createBullets = function () {
+        this.game.bullets = this.add.group();
+        this.game.bullets.enableBody = true;
+        this.game.bullets.physicsBodyType = Phaser.Physics.ARCADE;
+        this.game.bullets.createMultiple(20, 'bullet');
+        this.game.bullets.setAll('anchor.x', 0.5);
+        this.game.bullets.setAll('anchor.y', 0.5);
+        this.game.bullets.setAll('scale.x', 0.5);
+        this.game.bullets.setAll('scale.y', 0.5);
+        this.game.bullets.setAll('outOfBoundsKill', true);
+        this.game.bullets.setAll('checkWorldBounds', true);
+    };
+    ;
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
         this.movePlayer();
         this.rotatePlayerToPointer();
+        this.fireWhenButtonClicked();
     };
     ;
     return mainState;
 })(Phaser.State);
-//Creem la classe PLAYER perque ens servirà per poder fer el OBSERVER.
+// OBSERVER: Notificació de puntuació al player.
 var Player = (function (_super) {
     __extends(Player, _super);
     function Player(lives, game, x, y, key, frame) {
