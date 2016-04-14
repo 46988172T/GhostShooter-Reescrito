@@ -1192,77 +1192,79 @@ var Player = (function (_super) {
     }
     return Player;
 })(Phaser.Sprite);
-/*
 //FACTORY: Creació de monstres
-
-class Monster extends Phaser.Sprite{
-
-    constructor(game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
+var Monster = (function (_super) {
+    __extends(Monster, _super);
+    function Monster(game, x, y, key) {
+        _super.call(this, game, x, y, key);
+        this.MONSTER_HEALTH = 0;
+        this.MONSTER_SPEED = 300;
+        this.game = game;
+        this.anchor.set(0.5, 0.5);
+        this.health = this.MONSTER_HEALTH;
+        this.body.maxVelocity.setTo(this.MONSTER_SPEED, this.MONSTER_SPEED);
+        this.body.collideWorldBounds = true;
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
     }
-    update():void{
-
-    }
-}
-
-class MonsterFactory{
-    game:ShooterGame;
-    constructor(game:ShooterGame){
+    return Monster;
+})(Phaser.Sprite);
+var MonsterFactory = (function () {
+    function MonsterFactory(game) {
         this.game = game;
     }
-    createMonster(key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture):Monster{
-        if(key == 'robot'){
+    MonsterFactory.prototype.createMonster = function (key) {
+        if (key == 'robot') {
             return new Robot(this.game, key);
         }
-        if(key == 'zombie1'){
+        if (key == 'zombie1') {
             return new Zombie1(this.game, key);
         }
-        if (key == 'zombie2'){
+        if (key == 'zombie2') {
             return new Zombie2(this.game, key);
         }
+    };
+    return MonsterFactory;
+})();
+var Robot = (function (_super) {
+    __extends(Robot, _super);
+    function Robot(game, key) {
+        _super.call(this, game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 50;
+        this.MONSTER_SPEED = 100;
     }
-}
-
-class Robot extends Monster implements atacEspecial{
-    constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
+    Robot.prototype.superAtac = function () {
+        if (this.MONSTER_HEALTH <= 10) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        }
+    };
+    return Robot;
+})(Monster);
+var Zombie1 = (function (_super) {
+    __extends(Zombie1, _super);
+    function Zombie1(game, key) {
+        _super.call(this, game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 30;
+        this.MONSTER_SPEED = 200;
     }
-    update():void {
-        super.update();
+    Zombie1.prototype.superAtac = function () {
+        if (this.MONSTER_HEALTH <= 6) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        }
+    };
+    return Zombie1;
+})(Monster);
+var Zombie2 = (function (_super) {
+    __extends(Zombie2, _super);
+    function Zombie2(game, key) {
+        _super.call(this, game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 20;
+        this.MONSTER_SPEED = 300;
     }
-    superAtac(){
-
-    }
-}
-
-class Zombie1 extends Monster implements atacEspecial{
-    constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
-    }
-    update():void {
-
-    }
-    superAtac(){
-
-    }
-
-}
-
-class Zombie2 extends Monster implements atacEspecial{
-    constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
-    }
-    update():void {
-        super.update();
-    }
-    superAtac(){
-
-    }
-}
-
-//STRATEGY: Els zombies fan coses diferents.
-
-interface atacEspecial {
-
-}*/
+    Zombie2.prototype.superAtac = function () {
+        if (this.MONSTER_HEALTH <= 4) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        }
+    };
+    return Zombie2;
+})(Monster);
 //# sourceMappingURL=main.js.map

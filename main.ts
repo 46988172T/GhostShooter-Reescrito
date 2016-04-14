@@ -288,16 +288,22 @@ class Player extends Phaser.Sprite{
     }
 }
 
-/*
+
 //FACTORY: Creació de monstres
 
 class Monster extends Phaser.Sprite{
+    game:ShooterGame;
+    MONSTER_HEALTH = 0;
+    MONSTER_SPEED = 300;
 
     constructor(game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
-    }
-    update():void{
-
+        super(game, x, y, key);
+        this.game = game;
+        this.anchor.set(0.5,0.5);
+        this.health = this.MONSTER_HEALTH;
+        this.body.maxVelocity.setTo(this.MONSTER_SPEED, this.MONSTER_SPEED);
+        this.body.collideWorldBounds = true;
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
     }
 }
 
@@ -321,43 +327,48 @@ class MonsterFactory{
 
 class Robot extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
-    }
-    update():void {
-        super.update();
+        super(game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 50;
+        this.MONSTER_SPEED = 100;
     }
     superAtac(){
-
+        if(this.MONSTER_HEALTH <= 10){
+            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        }
     }
 }
 
 class Zombie1 extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-
+        super(game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 30;
+        this.MONSTER_SPEED = 200;
     }
-    update():void {
 
-    }
     superAtac(){
-
+        if(this.MONSTER_HEALTH <= 6){
+            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        }
     }
 
 }
 
 class Zombie2 extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
+        super(game, this.x, this.y, key);
+        this.MONSTER_HEALTH = 20;
+        this.MONSTER_SPEED = 300;
+    }
 
-    }
-    update():void {
-        super.update();
-    }
     superAtac(){
-
+        if(this.MONSTER_HEALTH <= 4){
+            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        }
     }
 }
 
 //STRATEGY: Els zombies fan coses diferents.
 
 interface atacEspecial {
-
-}*/
+    superAtac();
+}
