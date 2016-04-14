@@ -1193,7 +1193,7 @@ var Player = (function (_super) {
     return Player;
 })(Phaser.Sprite);
 /*
-// FACTORY: Creació de monstres
+//FACTORY: Creació de monstres
 
 class Monster extends Phaser.Sprite{
 

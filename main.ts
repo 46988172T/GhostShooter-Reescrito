@@ -289,7 +289,7 @@ class Player extends Phaser.Sprite{
 }
 
 /*
-// FACTORY: Creació de monstres
+//FACTORY: Creació de monstres
 
 class Monster extends Phaser.Sprite{
 
