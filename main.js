@@ -963,7 +963,7 @@ window.onload = function () {
 var ShooterGame = (function (_super) {
     __extends(ShooterGame, _super);
     function ShooterGame() {
-        _super.call(this, 800, 480, Phaser.CANVAS, 'gameDiv');
+        _super.call(this, 1000, 1000, Phaser.CANVAS, 'gameDiv');
         this.nextFire = 0;
         this.PLAYER_ACCELERATION = 500;
         this.PLAYER_MAX_SPEED = 300;
@@ -1007,7 +1007,7 @@ var mainState = (function (_super) {
             this.scale.pageAlignHorizontally = true;
             this.scale.pageAlignVertically = true;
             this.scale.forceOrientation(true);
-            this.scale.startFullScreen(false);
+            this.scale.startFullScreen(true);
         }
     };
     mainState.prototype.create = function () {
@@ -1019,6 +1019,7 @@ var mainState = (function (_super) {
         this.setupCamera();
         this.createExplosions();
         this.createBullets();
+        this.createMonsters();
         if (!this.game.device.desktop) {
         }
     };
@@ -1043,7 +1044,7 @@ var mainState = (function (_super) {
     ;
     /*Creació del jugador*/
     mainState.prototype.createPlayer = function () {
-        var nouJugador = new Player(3, this.game, 100 /*this.world.centerX, this.world.centerY*/, 100, 'player', 0);
+        var nouJugador = new Player(3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
         this.game.player = this.add.existing(nouJugador);
     };
     mainState.prototype.setupCamera = function () {
@@ -1166,11 +1167,77 @@ var mainState = (function (_super) {
         this.game.bullets.setAll('checkWorldBounds', true);
     };
     ;
+    // Creació de monstres
+    mainState.prototype.createMonsters = function () {
+        this.game.monsters = this.add.group();
+        var factory = new MonsterFactory(this.game);
+        for (var i = 0; i < 3; i++) {
+            this.newMonster(factory.createMonster('robot'));
+        }
+        for (var i = 0; i < 3; i++) {
+            this.newMonster(factory.createMonster('zombie1'));
+        }
+        for (var i = 0; i < 3; i++) {
+            this.newMonster(factory.createMonster('zombie2'));
+        }
+    };
+    ;
+    mainState.prototype.newMonster = function (monster) {
+        this.game.add.existing(monster);
+        this.game.monsters.add(monster);
+    };
+    mainState.prototype.resetMonster = function (monster) {
+        monster.rotation = this.physics.arcade.angleBetween(monster, this.game.player);
+    };
+    /*Fisiques*/
+    mainState.prototype.monsterTouchesPlayer = function (player, monster) {
+        monster.kill();
+        player.damage(1);
+        /*this.livesText.setText("Lives: " + this.player.health);*/
+        this.blink(player);
+        /*if (player.health == 0) {
+            this.stateText.text = " GAME OVER \n Click to restart";
+            this.stateText.visible = true;
+
+            //the "click to restart" handler
+            this.input.onTap.addOnce(this.restart, this);
+        }*/
+    };
+    mainState.prototype.bulletHitWall = function (bullet, walls) {
+        this.explosion(bullet.x, bullet.y);
+        bullet.kill();
+    };
+    mainState.prototype.bulletHitMonster = function (bullet, monster) {
+        bullet.kill();
+        monster.damage(4);
+        this.explosion(bullet.x, bullet.y);
+        if (monster.health > 0) {
+            this.blink(monster);
+        }
+        else {
+            /*this.score += 10;
+            this.scoreText.setText("Score: " + this.score);*/
+            monster.kill();
+        }
+    };
+    mainState.prototype.blink = function (sprite) {
+        var tween = this.add.tween(sprite)
+            .to({ alpha: 0.5 }, 100, Phaser.Easing.Bounce.Out)
+            .to({ alpha: 1.0 }, 100, Phaser.Easing.Bounce.Out);
+        tween.repeat(3);
+        tween.start();
+    };
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
         this.movePlayer();
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
+        this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
+        this.physics.arcade.collide(this.game.player, this.game.walls);
+        this.physics.arcade.overlap(this.game.bullets, this.game.monsters, this.bulletHitMonster, null, this);
+        this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
+        this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
+        this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
     };
     ;
     return mainState;
@@ -1195,17 +1262,25 @@ var Player = (function (_super) {
 //FACTORY: Creació de monstres
 var Monster = (function (_super) {
     __extends(Monster, _super);
-    function Monster(game, x, y, key) {
-        _super.call(this, game, x, y, key);
-        this.MONSTER_HEALTH = 0;
-        this.MONSTER_SPEED = 300;
+    function Monster(game, x, y, key, frame) {
+        _super.call(this, game, x, y, key, frame);
         this.game = game;
         this.anchor.set(0.5, 0.5);
-        this.health = this.MONSTER_HEALTH;
-        this.body.maxVelocity.setTo(this.MONSTER_SPEED, this.MONSTER_SPEED);
-        this.body.collideWorldBounds = true;
         this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.body.enableBody = true;
+        this.angle = game.rnd.angle();
+        this.checkWorldBounds = true;
+        this.health = this.MONSTER_HEALTH;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
+    Monster.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.events.onOutOfBounds.add(this.resetMonster, this);
+        this.game.physics.arcade.velocityFromAngle(this.angle, this.MONSTER_SPEED, this.body.velocity);
+    };
+    Monster.prototype.resetMonster = function (monster) {
+        monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
+    };
     return Monster;
 })(Phaser.Sprite);
 var MonsterFactory = (function () {
@@ -1228,13 +1303,17 @@ var MonsterFactory = (function () {
 var Robot = (function (_super) {
     __extends(Robot, _super);
     function Robot(game, key) {
-        _super.call(this, game, this.x, this.y, key);
-        this.MONSTER_HEALTH = 50;
+        _super.call(this, game, 250, 250, key, 0);
+        this.MONSTER_HEALTH = 10;
         this.MONSTER_SPEED = 100;
     }
+    Robot.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.superAtac();
+    };
     Robot.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 10) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        if (this.MONSTER_HEALTH <= 3) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
         }
     };
     return Robot;
@@ -1242,13 +1321,17 @@ var Robot = (function (_super) {
 var Zombie1 = (function (_super) {
     __extends(Zombie1, _super);
     function Zombie1(game, key) {
-        _super.call(this, game, this.x, this.y, key);
-        this.MONSTER_HEALTH = 30;
-        this.MONSTER_SPEED = 200;
+        _super.call(this, game, 750, 750, key, 0);
+        this.MONSTER_HEALTH = 15;
+        this.MONSTER_SPEED = 150;
     }
+    Zombie1.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.superAtac();
+    };
     Zombie1.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 6) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        if (this.MONSTER_HEALTH <= 4) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
         }
     };
     return Zombie1;
@@ -1256,13 +1339,17 @@ var Zombie1 = (function (_super) {
 var Zombie2 = (function (_super) {
     __extends(Zombie2, _super);
     function Zombie2(game, key) {
-        _super.call(this, game, this.x, this.y, key);
+        _super.call(this, game, 180, 750, key, 0);
         this.MONSTER_HEALTH = 20;
-        this.MONSTER_SPEED = 300;
+        this.MONSTER_SPEED = 200;
     }
+    Zombie2.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.superAtac();
+    };
     Zombie2.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 4) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED * 1.25;
+        if (this.MONSTER_HEALTH <= 5) {
+            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
         }
     };
     return Zombie2;

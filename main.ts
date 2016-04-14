@@ -30,7 +30,7 @@ class ShooterGame extends Phaser.Game{
     BULLET_SPEED = 800;
 
     constructor() {
-        super(800, 480, Phaser.CANVAS, 'gameDiv');
+        super(1000, 1000, Phaser.CANVAS, 'gameDiv');
         this.state.add('main', mainState);
         this.state.start('main');
     }
@@ -72,7 +72,7 @@ class mainState extends Phaser.State {
             this.scale.pageAlignHorizontally = true;
             this.scale.pageAlignVertically = true;
             this.scale.forceOrientation(true);
-            this.scale.startFullScreen(false);
+            this.scale.startFullScreen(true);
         }
     }
 
@@ -87,6 +87,7 @@ class mainState extends Phaser.State {
         this.setupCamera();
         this.createExplosions();
         this.createBullets();
+        this.createMonsters();
 
         if (!this.game.device.desktop) {
 
@@ -115,7 +116,7 @@ class mainState extends Phaser.State {
 
     /*Creació del jugador*/
     private createPlayer() {
-        var nouJugador = new Player(3, this.game, 100/*this.world.centerX, this.world.centerY*/,100, 'player', 0);
+        var nouJugador = new Player(3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
         this.game.player = this.add.existing(nouJugador);
     }
 
@@ -251,12 +252,98 @@ class mainState extends Phaser.State {
         this.game.bullets.setAll('checkWorldBounds', true);
     };
 
+    // Creació de monstres
+    private createMonsters(){
+        this.game.monsters = this.add.group();
+        var factory = new MonsterFactory(this.game);
+        for (var i=0; i<3; i++){
+            this.newMonster(factory.createMonster('robot'));
+        }
+        for (var i=0; i<3; i++){
+            this.newMonster(factory.createMonster('zombie1'));
+        }
+        for (var i=0; i<3; i++){
+            this.newMonster(factory.createMonster('zombie2'));
+        }
+    };
+
+    newMonster(monster:Monster) {
+        this.game.add.existing(monster);
+        this.game.monsters.add(monster);
+    }
+
+    resetMonster(monster:Monster) {
+        monster.rotation = this.physics.arcade.angleBetween(monster, this.game.player);
+    }
+
+
+    /*Fisiques*/
+
+    private monsterTouchesPlayer(player:Phaser.Sprite, monster:Phaser.Sprite) {
+        monster.kill();
+
+        player.damage(1);
+
+        /*this.livesText.setText("Lives: " + this.player.health);*/
+
+        this.blink(player);
+
+        /*if (player.health == 0) {
+            this.stateText.text = " GAME OVER \n Click to restart";
+            this.stateText.visible = true;
+
+            //the "click to restart" handler
+            this.input.onTap.addOnce(this.restart, this);
+        }*/
+    }
+
+    private bulletHitWall(bullet:Phaser.Sprite, walls:Phaser.TilemapLayer) {
+        this.explosion(bullet.x, bullet.y);
+        bullet.kill();
+    }
+
+    private bulletHitMonster(bullet:Phaser.Sprite, monster:Phaser.Sprite) {
+        bullet.kill();
+        monster.damage(4);
+
+
+        this.explosion(bullet.x, bullet.y);
+
+        if (monster.health > 0) {
+            this.blink(monster)
+        } else {
+            /*this.score += 10;
+            this.scoreText.setText("Score: " + this.score);*/
+            monster.kill()
+        }
+    }
+
+    blink(sprite:Phaser.Sprite) {
+        var tween = this.add.tween(sprite)
+            .to({alpha: 0.5}, 100, Phaser.Easing.Bounce.Out)
+            .to({alpha: 1.0}, 100, Phaser.Easing.Bounce.Out);
+
+        tween.repeat(3);
+        tween.start();
+    }
+
+
 
     update():void{
         super.update();
         this.movePlayer();
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
+
+
+
+        this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
+        this.physics.arcade.collide(this.game.player, this.game.walls);
+        this.physics.arcade.overlap(this.game.bullets, this.game.monsters, this.bulletHitMonster, null, this);
+        this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
+        this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
+        this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
+
     };
 }
 
@@ -293,17 +380,29 @@ class Player extends Phaser.Sprite{
 
 class Monster extends Phaser.Sprite{
     game:ShooterGame;
-    MONSTER_HEALTH = 0;
-    MONSTER_SPEED = 300;
+    MONSTER_HEALTH:number;
+    MONSTER_SPEED:number;
 
-    constructor(game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-        super(game, x, y, key);
+    constructor(game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture,frame:string|number){
+        super(game, x, y, key, frame);
         this.game = game;
         this.anchor.set(0.5,0.5);
-        this.health = this.MONSTER_HEALTH;
-        this.body.maxVelocity.setTo(this.MONSTER_SPEED, this.MONSTER_SPEED);
-        this.body.collideWorldBounds = true;
         this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.body.enableBody = true;
+        this.angle = game.rnd.angle();
+        this.checkWorldBounds = true;
+        this.health = this.MONSTER_HEALTH;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
+    }
+
+    update(){
+        super.update();
+        this.events.onOutOfBounds.add(this.resetMonster, this);
+        this.game.physics.arcade.velocityFromAngle(this.angle, this.MONSTER_SPEED, this.body.velocity);
+    }
+
+    resetMonster(monster:Phaser.Sprite) {
+        monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
     }
 }
 
@@ -327,27 +426,38 @@ class MonsterFactory{
 
 class Robot extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-        super(game, this.x, this.y, key);
-        this.MONSTER_HEALTH = 50;
+        super(game, 250, 250, key,0);
+        this.MONSTER_HEALTH = 10;
         this.MONSTER_SPEED = 100;
     }
+
+    update() {
+        super.update();
+        this.superAtac();
+    }
+
     superAtac(){
-        if(this.MONSTER_HEALTH <= 10){
-            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        if(this.MONSTER_HEALTH <= 3){
+            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
         }
     }
 }
 
 class Zombie1 extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-        super(game, this.x, this.y, key);
-        this.MONSTER_HEALTH = 30;
-        this.MONSTER_SPEED = 200;
+        super(game, 750, 750, key,0);
+        this.MONSTER_HEALTH = 15;
+        this.MONSTER_SPEED = 150;
+    }
+
+    update() {
+        super.update();
+        this.superAtac();
     }
 
     superAtac(){
-        if(this.MONSTER_HEALTH <= 6){
-            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        if(this.MONSTER_HEALTH <= 4){
+            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
         }
     }
 
@@ -355,14 +465,19 @@ class Zombie1 extends Monster implements atacEspecial{
 
 class Zombie2 extends Monster implements atacEspecial{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-        super(game, this.x, this.y, key);
+        super(game, 180, 750, key,0);
         this.MONSTER_HEALTH = 20;
-        this.MONSTER_SPEED = 300;
+        this.MONSTER_SPEED = 200;
+    }
+
+    update() {
+        super.update();
+        this.superAtac();
     }
 
     superAtac(){
-        if(this.MONSTER_HEALTH <= 4){
-            this.MONSTER_SPEED = this.MONSTER_SPEED*1.25;
+        if(this.MONSTER_HEALTH <= 5){
+            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
         }
     }
 }
