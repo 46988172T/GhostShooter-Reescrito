@@ -963,8 +963,9 @@ window.onload = function () {
 var ShooterGame = (function (_super) {
     __extends(ShooterGame, _super);
     function ShooterGame() {
-        _super.call(this, 1000, 1000, Phaser.CANVAS, 'gameDiv');
+        _super.call(this, 1024, 700, Phaser.CANVAS, 'gameDiv');
         this.nextFire = 0;
+        this.level = 1;
         this.TEXT_MARGIN = 50;
         this.PLAYER_ACCELERATION = 500;
         this.PLAYER_MAX_SPEED = 300;
@@ -989,6 +990,7 @@ var mainState = (function (_super) {
         this.load.image('zombie1', 'assets/zoimbie1_hold.png');
         this.load.image('zombie2', 'assets/zombie2_hold.png');
         this.load.image('robot', 'assets/robot1_hold.png');
+        this.load.image('vida', 'assets/PickupRojo-low.png');
         this.load.image('explosion', 'assets/smokeWhite0.png');
         this.load.image('explosion2', 'assets/smokeWhite1.png');
         this.load.image('explosion3', 'assets/smokeWhite2.png');
@@ -1016,6 +1018,7 @@ var mainState = (function (_super) {
         this.createTilemap();
         this.createWalls();
         this.createBackground();
+        this.createVida();
         this.createPlayer();
         this.createTexts();
         this.setupCamera();
@@ -1044,6 +1047,12 @@ var mainState = (function (_super) {
         this.game.background.y = this.game.world.centerY;
     };
     ;
+    /* Creació vida */
+    mainState.prototype.createVida = function () {
+        this.game.vida = this.add.sprite(this.rnd.between(65, 535), this.rnd.between(65, 535), 'vida');
+        this.game.vida.anchor.setTo(0.5, 0.5);
+        this.physics.enable(this.game.vida, Phaser.Physics.ARCADE);
+    };
     /*Creació del jugador*/
     mainState.prototype.createPlayer = function () {
         var nouJugador = new Player(0, 3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
@@ -1173,13 +1182,13 @@ var mainState = (function (_super) {
     mainState.prototype.createMonsters = function () {
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < 7; i++) {
             this.newMonster(factory.createMonster('robot'));
         }
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < 7; i++) {
             this.newMonster(factory.createMonster('zombie1'));
         }
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < 7; i++) {
             this.newMonster(factory.createMonster('zombie2'));
         }
     };
@@ -1206,9 +1215,36 @@ var mainState = (function (_super) {
         });
         this.game.livesText.anchor.setTo(1, 0);
         this.game.livesText.fixedToCamera = true;
+        this.game.maxLivesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN + 20, 'Max Lives: ' + this.game.player.getMaxLives(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.maxLivesText.anchor.setTo(1, 0);
+        this.game.maxLivesText.fixedToCamera = true;
+        this.game.levelText = this.game.add.text(width / 2, this.game.TEXT_MARGIN, 'Level: ' + this.game.level, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.levelText.anchor.setTo(1, 0);
+        this.game.levelText.fixedToCamera = true;
         this.game.stateText = this.add.text(width / 2, height / 2, '', { font: '84px Arial', fill: '#fff' });
         this.game.stateText.anchor.setTo(0.5, 0.5);
         this.game.stateText.fixedToCamera = true;
+    };
+    mainState.prototype.uploadText = function () {
+        this.game.scoreText.setText('Score: ' + this.game.player.getScore());
+        this.game.livesText.setText('Lives: ' + this.game.player.getLives());
+        this.game.maxLivesText.setText('MaxLives: ' + this.game.player.getMaxLives());
+        if (this.game.levelFinished == true) {
+            this.game.level = this.game.level + 1;
+            this.game.levelFinished = false;
+            this.game.stateText.text = " NEXT LEVEL: " + this.game.level + " \n Click to restart";
+            this.game.stateText.visible = true;
+            //the "click to restart" handler
+            this.input.onTap.addOnce(this.createMonsters, this);
+            this.game.stateText.visible = false;
+        }
+        this.game.levelText.setText('Level: ' + this.game.level);
     };
     /*Fisiques*/
     mainState.prototype.monsterTouchesPlayer = function (player, monster) {
@@ -1250,17 +1286,39 @@ var mainState = (function (_super) {
         tween.repeat(3);
         tween.start();
     };
+    mainState.prototype.checkMonsters = function () {
+        return this.game.monsters.countLiving();
+    };
+    mainState.prototype.nextLevel = function () {
+        if (this.checkMonsters() == 0) {
+            this.game.levelFinished = true;
+        }
+    };
+    mainState.prototype.nuevaVida = function () {
+        if (this.game.player.getLives() < this.game.player.getMaxLives()) {
+            this.game.vida.kill();
+            this.game.player.setLives();
+            var newX = this.rnd.between(65, 535);
+            var newY = this.rnd.between(65, 800);
+            this.game.vida.reset(newX, newY);
+        }
+        else {
+        }
+    };
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
         this.movePlayer();
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
+        this.uploadText(); //trampa.
+        this.nextLevel();
         this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
         this.physics.arcade.collide(this.game.player, this.game.walls);
         this.physics.arcade.overlap(this.game.bullets, this.game.monsters, this.bulletHitMonster, null, this);
         this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
         this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
+        this.physics.arcade.overlap(this.game.player, this.game.vida, this.nuevaVida, null, this);
     };
     ;
     mainState.prototype.restart = function () {
@@ -1273,6 +1331,8 @@ var Monster = (function (_super) {
     __extends(Monster, _super);
     function Monster(game, x, y, key, frame) {
         _super.call(this, game, x, y, key, frame);
+        this.MONSTER_HEALTH = 10;
+        this.MONSTER_SPEED = 100;
         this.game = game;
         this.anchor.set(0.5, 0.5);
         this.game.physics.enable(this, Phaser.Physics.ARCADE);
@@ -1281,6 +1341,7 @@ var Monster = (function (_super) {
         this.checkWorldBounds = true;
         this.health = this.MONSTER_HEALTH;
         this.body.velocity.setTo(this.MONSTER_SPEED);
+        this.checked = false;
     }
     Monster.prototype.update = function () {
         _super.prototype.update.call(this);
@@ -1314,15 +1375,18 @@ var Robot = (function (_super) {
     function Robot(game, key) {
         _super.call(this, game, 250, 250, key, 0);
         this.MONSTER_HEALTH = 10;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 100;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
     Robot.prototype.update = function () {
         _super.prototype.update.call(this);
-        this.superAtac();
+        this.enfadat();
     };
-    Robot.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 3) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
+    Robot.prototype.enfadat = function () {
+        if (this.health <= 5 && this.checked == false) {
+            this.scale.multiply(2, 2);
+            this.checked = true;
         }
     };
     return Robot;
@@ -1332,15 +1396,18 @@ var Zombie1 = (function (_super) {
     function Zombie1(game, key) {
         _super.call(this, game, 750, 750, key, 0);
         this.MONSTER_HEALTH = 15;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 150;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
     Zombie1.prototype.update = function () {
         _super.prototype.update.call(this);
-        this.superAtac();
+        this.enfadat();
     };
-    Zombie1.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 4) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
+    Zombie1.prototype.enfadat = function () {
+        if (this.health <= 6 && this.checked == false) {
+            this.scale.multiply(1.5, 1.5);
+            this.checked = true;
         }
     };
     return Zombie1;
@@ -1348,17 +1415,20 @@ var Zombie1 = (function (_super) {
 var Zombie2 = (function (_super) {
     __extends(Zombie2, _super);
     function Zombie2(game, key) {
-        _super.call(this, game, 180, 750, key, 0);
+        _super.call(this, game, 250, 750, key, 0);
         this.MONSTER_HEALTH = 20;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 200;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
     Zombie2.prototype.update = function () {
         _super.prototype.update.call(this);
-        this.superAtac();
+        this.enfadat();
     };
-    Zombie2.prototype.superAtac = function () {
-        if (this.MONSTER_HEALTH <= 5) {
-            this.MONSTER_SPEED = this.MONSTER_SPEED + 20;
+    Zombie2.prototype.enfadat = function () {
+        if (this.health <= 7 && this.checked == false) {
+            this.scale.multiply(2, 2);
+            this.checked = true;
         }
     };
     return Zombie2;
@@ -1392,26 +1462,47 @@ var Player = (function (_super) {
     Player.prototype.getLives = function () {
         return this.lives;
     };
+    Player.prototype.getMaxLives = function () {
+        return this.max_lives;
+    };
+    Player.prototype.setLives = function () {
+        this.lives += 1;
+        this.health = this.lives;
+    };
+    Player.prototype.setMaxLives = function () {
+        this.max_lives += 1;
+    };
     return Player;
 })(Phaser.Sprite);
 var DisplayStats = (function () {
     function DisplayStats(player) {
+        this.pointsUpdate = 0;
+        this.counter = 0;
         this.player = player;
         this.player.suscribe(this);
     }
-    DisplayStats.prototype.displayPoints = function () {
-        console.log("en el display de puntos: ", this.points);
-        /*this.game.scoreText.setText('Score: ' + this.points);*/
-    };
-    DisplayStats.prototype.displayLives = function () {
-        console.log("en el display de vidas: ", this.lives);
-        /*this.game.livesText.setText('Lives: ' + this.lives);*/
+    DisplayStats.prototype.displayData = function () {
+        console.log("en el display: ", this.points, this.lives);
+        /*this.game.scoreText.setText('Score: ' + this.points);
+        this.game.livesText.setText('Lives: ' + this.lives);
+        this.game.maxLivesText.setText('MaxLives: '+ this.player.getMaxLives());*/ //com fem per passar els valors que tenim aqui al text???!
     };
     DisplayStats.prototype.updateStats = function (points, lives) {
         this.points = points;
+        this.pointsCheck = points;
         this.lives = lives;
-        this.displayPoints();
-        this.displayLives();
+        this.checkMaxLives(this.pointsCheck); //passem el valor dels punts per saber si podem augmentar la vida màxima.
+        this.displayData();
+    };
+    DisplayStats.prototype.checkMaxLives = function (pointsCheck) {
+        pointsCheck = pointsCheck - this.pointsUpdate; //els pointsCheck comprovaran si hem fet mes o igual a cent punts. fem la resta per eliminar
+        // punts cada 100. inicial: 100-0:
+        if (pointsCheck >= 100) {
+            this.counter += 1;
+            this.player.setMaxLives(); //suma +1 al maxim de vida
+            this.pointsUpdate = pointsCheck * this.counter; //pointsUpdate = 100*contador que va sumant. (+1 cada 100)
+            console.log("max vida:" + this.player.getMaxLives());
+        }
     };
     return DisplayStats;
 })();

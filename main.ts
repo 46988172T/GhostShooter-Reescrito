@@ -10,6 +10,7 @@ class ShooterGame extends Phaser.Game{
     monsters:Phaser.Group;
     bullets:Phaser.Group;
     explosions:Phaser.Group;
+    vida:Phaser.Sprite;
 
     tilemap:Phaser.Tilemap;
     background:Phaser.TilemapLayer;
@@ -17,13 +18,16 @@ class ShooterGame extends Phaser.Game{
 
     scoreText:Phaser.Text;
     livesText:Phaser.Text;
+    maxLivesText:Phaser.Text;
     stateText:Phaser.Text;
+    levelText:Phaser.Text;
+    levelFinished:boolean;
 
     cursors:Phaser.CursorKeys;
     gamepad:Gamepads.GamePad;
 
     nextFire = 0;
-
+    level = 1;
     TEXT_MARGIN = 50;
     PLAYER_ACCELERATION = 500;
     PLAYER_MAX_SPEED = 300;
@@ -32,7 +36,7 @@ class ShooterGame extends Phaser.Game{
     BULLET_SPEED = 800;
 
     constructor() {
-        super(1000, 1000, Phaser.CANVAS, 'gameDiv');
+        super(1024, 700, Phaser.CANVAS, 'gameDiv');
         this.state.add('main', mainState);
         this.state.start('main');
     }
@@ -51,6 +55,8 @@ class mainState extends Phaser.State {
         this.load.image('zombie1', 'assets/zoimbie1_hold.png');
         this.load.image('zombie2', 'assets/zombie2_hold.png');
         this.load.image('robot', 'assets/robot1_hold.png');
+
+        this.load.image('vida', 'assets/PickupRojo-low.png');
 
         this.load.image('explosion', 'assets/smokeWhite0.png');
         this.load.image('explosion2', 'assets/smokeWhite1.png');
@@ -84,6 +90,7 @@ class mainState extends Phaser.State {
         this.createTilemap();
         this.createWalls();
         this.createBackground();
+        this.createVida();
         this.createPlayer();
         this.createTexts();
         this.setupCamera();
@@ -115,6 +122,14 @@ class mainState extends Phaser.State {
         this.game.background.x = this.game.world.centerX;
         this.game.background.y = this.game.world.centerY;
     };
+
+    /* Creació vida */
+
+    createVida() {
+        this.game.vida = this.add.sprite(this.rnd.between(65, 535), this.rnd.between(65, 535), 'vida');
+        this.game.vida.anchor.setTo(0.5, 0.5);
+        this.physics.enable(this.game.vida, Phaser.Physics.ARCADE);
+    }
 
     /*Creació del jugador*/
     private createPlayer() {
@@ -260,13 +275,13 @@ class mainState extends Phaser.State {
     private createMonsters(){
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
-        for (var i=0; i<3; i++){
+        for (var i=0; i<7; i++){
             this.newMonster(factory.createMonster('robot'));
         }
-        for (var i=0; i<3; i++){
+        for (var i=0; i<7; i++){
             this.newMonster(factory.createMonster('zombie1'));
         }
-        for (var i=0; i<3; i++){
+        for (var i=0; i<7; i++){
             this.newMonster(factory.createMonster('zombie2'));
         }
     };
@@ -286,6 +301,7 @@ class mainState extends Phaser.State {
     private createTexts() {
         var width = this.scale.bounds.width;
         var height = this.scale.bounds.height;
+
         this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.game.player.getScore(), {
             font: "30px Arial",
             fill: "#ffffff"
@@ -297,9 +313,41 @@ class mainState extends Phaser.State {
         });
         this.game.livesText.anchor.setTo(1, 0);
         this.game.livesText.fixedToCamera = true;
+
+        this.game.maxLivesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN+20, 'Max Lives: ' + this.game.player.getMaxLives(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.maxLivesText.anchor.setTo(1, 0);
+        this.game.maxLivesText.fixedToCamera = true;
+
+        this.game.levelText = this.game.add.text(width/2 , this.game.TEXT_MARGIN, 'Level: ' + this.game.level, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.levelText.anchor.setTo(1, 0);
+        this.game.levelText.fixedToCamera = true;
+
         this.game.stateText = this.add.text(width / 2, height / 2, '', {font: '84px Arial', fill: '#fff'});
         this.game.stateText.anchor.setTo(0.5, 0.5);
         this.game.stateText.fixedToCamera = true;
+    }
+
+    uploadText(){
+        this.game.scoreText.setText('Score: ' + this.game.player.getScore());
+        this.game.livesText.setText('Lives: ' + this.game.player.getLives());
+        this.game.maxLivesText.setText('MaxLives: '+ this.game.player.getMaxLives());
+        if(this.game.levelFinished == true) {
+            this.game.level = this.game.level+1;
+            this.game.levelFinished = false;
+            this.game.stateText.text = " NEXT LEVEL: "+this.game.level+" \n Click to restart";
+            this.game.stateText.visible = true;
+
+            //the "click to restart" handler
+            this.input.onTap.addOnce(this.createMonsters, this);
+            this.game.stateText.visible = false;
+        }
+        this.game.levelText.setText('Level: ' + this.game.level);
     }
 
 
@@ -355,13 +403,37 @@ class mainState extends Phaser.State {
         tween.start();
     }
 
+    checkMonsters():number{
+       return this.game.monsters.countLiving();
+    }
 
+    nextLevel() {
+        if(this.checkMonsters()==0) {
+            this.game.levelFinished = true;
+        }
+    }
+
+    nuevaVida(){
+        if(this.game.player.getLives() < this.game.player.getMaxLives()){
+            this.game.vida.kill();
+            this.game.player.setLives();
+            var newX = this.rnd.between(65,535);
+            var newY = this.rnd.between(65,800);
+            this.game.vida.reset(newX, newY);
+
+        }else{
+
+        }
+
+    }
 
     update():void{
         super.update();
         this.movePlayer();
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
+        this.uploadText();//trampa.
+        this.nextLevel();
 
         this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
         this.physics.arcade.collide(this.game.player, this.game.walls);
@@ -369,6 +441,7 @@ class mainState extends Phaser.State {
         this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
         this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
+        this.physics.arcade.overlap(this.game.player, this.game.vida, this.nuevaVida, null, this);
 
     };
 
@@ -381,8 +454,9 @@ class mainState extends Phaser.State {
 
 class Monster extends Phaser.Sprite{
     game:ShooterGame;
-    MONSTER_HEALTH:number;
-    MONSTER_SPEED:number;
+    MONSTER_HEALTH = 10;
+    MONSTER_SPEED = 100;
+    checked:boolean;
 
     constructor(game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture,frame:string|number){
         super(game, x, y, key, frame);
@@ -392,12 +466,14 @@ class Monster extends Phaser.Sprite{
         this.body.enableBody = true;
         this.angle = game.rnd.angle();
         this.checkWorldBounds = true;
-        this.health = this.MONSTER_HEALTH;
+        this.health = this.MONSTER_HEALTH
         this.body.velocity.setTo(this.MONSTER_SPEED);
+        this.checked = false;
     }
 
     update(){
         super.update();
+
         this.events.onOutOfBounds.add(this.resetMonster, this);
         this.game.physics.arcade.velocityFromAngle(this.angle, this.MONSTER_SPEED, this.body.velocity);
     }
@@ -406,10 +482,13 @@ class Monster extends Phaser.Sprite{
         monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
     }
 
+
+
 }
 
 class MonsterFactory{
     game:ShooterGame;
+
     constructor(game:ShooterGame){
         this.game = game;
     }
@@ -420,74 +499,86 @@ class MonsterFactory{
         if(key == 'zombie1'){
             return new Zombie1(this.game, key);
         }
-        if (key == 'zombie2'){
+        if(key == 'zombie2'){
             return new Zombie2(this.game, key);
         }
     }
+
+
 }
 
-class Robot extends Monster implements atacEspecial{
+class Robot extends Monster implements Gegant{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
         super(game, 250, 250, key,0);
         this.MONSTER_HEALTH = 10;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 100;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
 
     update() {
         super.update();
-        this.superAtac();
+        this.enfadat();
     }
 
-    superAtac(){
-        if(this.MONSTER_HEALTH <= 3){
-            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
+    enfadat(){
+        if(this.health <= 5 && this.checked == false){
+            this.scale.multiply(2,2);
+            this.checked = true;
         }
     }
 }
 
-class Zombie1 extends Monster implements atacEspecial{
+class Zombie1 extends Monster implements Gegant{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
         super(game, 750, 750, key,0);
         this.MONSTER_HEALTH = 15;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 150;
+        this.body.velocity.setTo(this.MONSTER_SPEED)
+
     }
 
     update() {
         super.update();
-        this.superAtac();
+        this.enfadat()
     }
 
-    superAtac(){
-        if(this.MONSTER_HEALTH <= 4){
-            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
+    enfadat(){
+        if(this.health <= 6 && this.checked == false){
+            this.scale.multiply(1.5,1.5);
+            this.checked = true;
         }
     }
 
 }
 
-class Zombie2 extends Monster implements atacEspecial{
+class Zombie2 extends Monster implements Gegant{
     constructor(game:ShooterGame, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture){
-        super(game, 180, 750, key,0);
+        super(game, 250, 750, key,0);
         this.MONSTER_HEALTH = 20;
+        this.health = this.MONSTER_HEALTH;
         this.MONSTER_SPEED = 200;
+        this.body.velocity.setTo(this.MONSTER_SPEED);
     }
 
     update() {
         super.update();
-        this.superAtac();
+        this.enfadat();
     }
 
-    superAtac(){
-        if(this.MONSTER_HEALTH <= 5){
-            this.MONSTER_SPEED = this.MONSTER_SPEED+20;
+    enfadat(){
+        if(this.health <= 7 && this.checked == false){
+            this.scale.multiply(2,2);
+            this.checked = true;
         }
     }
 }
 
 //STRATEGY: Els zombies acceleren la velocitat en tant estan a prop de morir.
 
-interface atacEspecial {
-    superAtac();
+interface Gegant {
+    enfadat();
 }
 
 
@@ -536,6 +627,19 @@ class Player extends Phaser.Sprite implements Publisher{
     getLives():number{
         return this.lives;
     }
+
+    getMaxLives():number{
+        return this.max_lives;
+    }
+
+    setLives(){
+        this.lives +=1;
+        this.health = this.lives;
+    }
+
+    setMaxLives(){
+        this.max_lives +=1;
+    }
 }
 
 interface Observer{ //observer
@@ -547,31 +651,40 @@ class DisplayStats implements Observer{ //display
     points:number;
     lives:number;
     player:Player;
+    pointsCheck:number;
+    pointsUpdate = 0;
+    counter = 0;
 
 
     constructor(player:Player){
         this.player = player;
         this.player.suscribe(this);
     }
-    public displayPoints(){
 
-        console.log("en el display de puntos: ", this.points);
-
-        /*this.game.scoreText.setText('Score: ' + this.points);*/
-    }
-
-    public displayLives(){
-
-        console.log("en el display de vidas: ", this.lives);
-
-        /*this.game.livesText.setText('Lives: ' + this.lives);*/
+    public displayData(){
+        console.log("en el display: ", this.points, this.lives);
+        /*this.game.scoreText.setText('Score: ' + this.points);
+        this.game.livesText.setText('Lives: ' + this.lives);
+        this.game.maxLivesText.setText('MaxLives: '+ this.player.getMaxLives());*/  //com fem per passar els valors que tenim aqui al text???!
     }
 
     updateStats(points:number, lives:number){
         this.points = points;
+        this.pointsCheck = points;
         this.lives = lives;
-        this.displayPoints();
-        this.displayLives();
+        this.checkMaxLives(this.pointsCheck); //passem el valor dels punts per saber si podem augmentar la vida màxima.
+        this.displayData();
+    }
+
+    checkMaxLives(pointsCheck:number){
+        pointsCheck = pointsCheck - this.pointsUpdate; //els pointsCheck comprovaran si hem fet mes o igual a cent punts. fem la resta per eliminar
+                                                        // punts cada 100. inicial: 100-0:
+        if(pointsCheck >= 100){
+            this.counter += 1;
+            this.player.setMaxLives();                 //suma +1 al maxim de vida
+            this.pointsUpdate = pointsCheck*this.counter;    //pointsUpdate = 100*contador que va sumant. (+1 cada 100)
+            console.log("max vida:"+this.player.getMaxLives())
+        }
     }
 }
 
