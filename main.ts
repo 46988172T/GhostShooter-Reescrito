@@ -15,8 +15,8 @@ class ShooterGame extends Phaser.Game{
     background:Phaser.TilemapLayer;
     walls:Phaser.TilemapLayer;
 
-    scoreText:Phaser.Text;
-    livesText:Phaser.Text;
+    public scoreText:Phaser.Text;
+    public livesText:Phaser.Text;
     stateText:Phaser.Text;
 
     displayStats:DisplayStats;
@@ -295,7 +295,7 @@ class mainState extends Phaser.State {
             fill: "#ffffff"
         });
         this.game.scoreText.fixedToCamera = true;
-        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
+        this.game.livesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
@@ -337,8 +337,6 @@ class mainState extends Phaser.State {
     private bulletHitMonster(bullet:Phaser.Sprite, monster:Phaser.Sprite) {
         bullet.kill();
         monster.damage(4);
-
-
 
         this.explosion(bullet.x, bullet.y);
 
@@ -561,22 +559,16 @@ class DisplayStats implements Observer{ //display
     }
     public displayPoints(){
 
-        console.log("puntos: ", this.points);
+        console.log("en el display de puntos: ", this.points);
 
-        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.points, {
-            font: "30px Arial",
-            fill: "#ffffff"
-        });
+        this.game.scoreText.setText('Score: ' + this.points);
     }
 
     public displayLives(){
 
-        console.log("vidas: ", this.lives);
+        console.log("en el display de vidas: ", this.lives);
 
-        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.lives, {
-            font: "30px Arial",
-            fill: "#ffffff"
-        });
+        this.game.livesText.setText('Lives: ' + this.lives);
     }
 
     updateStats(points:number, lives:number){

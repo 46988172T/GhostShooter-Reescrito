@@ -1200,7 +1200,7 @@ var mainState = (function (_super) {
             fill: "#ffffff"
         });
         this.game.scoreText.fixedToCamera = true;
-        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
+        this.game.livesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
@@ -1400,18 +1400,12 @@ var DisplayStats = (function () {
         this.player.suscribe(this);
     }
     DisplayStats.prototype.displayPoints = function () {
-        console.log("puntos: ", this.points);
-        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.points, {
-            font: "30px Arial",
-            fill: "#ffffff"
-        });
+        console.log("en el display de puntos: ", this.points);
+        this.game.scoreText.setText('Score: ' + this.points);
     };
     DisplayStats.prototype.displayLives = function () {
-        console.log("vidas: ", this.lives);
-        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.lives, {
-            font: "30px Arial",
-            fill: "#ffffff"
-        });
+        console.log("en el display de vidas: ", this.lives);
+        this.game.livesText.setText('Lives: ' + this.lives);
     };
     DisplayStats.prototype.updateStats = function (points, lives) {
         this.points = points;
