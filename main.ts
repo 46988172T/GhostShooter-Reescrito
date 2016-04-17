@@ -15,13 +15,9 @@ class ShooterGame extends Phaser.Game{
     background:Phaser.TilemapLayer;
     walls:Phaser.TilemapLayer;
 
-    public scoreText:Phaser.Text;
-    public livesText:Phaser.Text;
+    scoreText:Phaser.Text;
+    livesText:Phaser.Text;
     stateText:Phaser.Text;
-
-    displayStats:DisplayStats;
-
-
 
     cursors:Phaser.CursorKeys;
     gamepad:Gamepads.GamePad;
@@ -561,14 +557,14 @@ class DisplayStats implements Observer{ //display
 
         console.log("en el display de puntos: ", this.points);
 
-        this.game.scoreText.setText('Score: ' + this.points);
+        /*this.game.scoreText.setText('Score: ' + this.points);*/
     }
 
     public displayLives(){
 
         console.log("en el display de vidas: ", this.lives);
 
-        this.game.livesText.setText('Lives: ' + this.lives);
+        /*this.game.livesText.setText('Lives: ' + this.lives);*/
     }
 
     updateStats(points:number, lives:number){

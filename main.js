@@ -1401,11 +1401,11 @@ var DisplayStats = (function () {
     }
     DisplayStats.prototype.displayPoints = function () {
         console.log("en el display de puntos: ", this.points);
-        this.game.scoreText.setText('Score: ' + this.points);
+        /*this.game.scoreText.setText('Score: ' + this.points);*/
     };
     DisplayStats.prototype.displayLives = function () {
         console.log("en el display de vidas: ", this.lives);
-        this.game.livesText.setText('Lives: ' + this.lives);
+        /*this.game.livesText.setText('Lives: ' + this.lives);*/
     };
     DisplayStats.prototype.updateStats = function (points, lives) {
         this.points = points;
