@@ -14,15 +14,21 @@ class ShooterGame extends Phaser.Game{
     tilemap:Phaser.Tilemap;
     background:Phaser.TilemapLayer;
     walls:Phaser.TilemapLayer;
+
     scoreText:Phaser.Text;
     livesText:Phaser.Text;
+    stateText:Phaser.Text;
+
+    displayStats:DisplayStats;
+
+
 
     cursors:Phaser.CursorKeys;
     gamepad:Gamepads.GamePad;
 
     nextFire = 0;
 
-
+    TEXT_MARGIN = 50;
     PLAYER_ACCELERATION = 500;
     PLAYER_MAX_SPEED = 300;
     PLAYER_DRAG = 600;
@@ -82,8 +88,8 @@ class mainState extends Phaser.State {
         this.createTilemap();
         this.createWalls();
         this.createBackground();
-
         this.createPlayer();
+        this.createTexts();
         this.setupCamera();
         this.createExplosions();
         this.createBullets();
@@ -116,7 +122,7 @@ class mainState extends Phaser.State {
 
     /*Creació del jugador*/
     private createPlayer() {
-        var nouJugador = new Player(3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
+        var nouJugador = new Player(0, 3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
         this.game.player = this.add.existing(nouJugador);
     }
 
@@ -252,7 +258,9 @@ class mainState extends Phaser.State {
         this.game.bullets.setAll('checkWorldBounds', true);
     };
 
-    // Creació de monstres
+
+    /*Creació de monstres*/
+
     private createMonsters(){
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
@@ -277,6 +285,28 @@ class mainState extends Phaser.State {
     }
 
 
+    /* Creació de textos */
+
+    private createTexts() {
+        var width = this.scale.bounds.width;
+        var height = this.scale.bounds.height;
+        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.game.player.getScore(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.scoreText.fixedToCamera = true;
+        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.livesText.anchor.setTo(1, 0);
+        this.game.livesText.fixedToCamera = true;
+        this.game.stateText = this.add.text(width / 2, height / 2, '', {font: '84px Arial', fill: '#fff'});
+        this.game.stateText.anchor.setTo(0.5, 0.5);
+        this.game.stateText.fixedToCamera = true;
+    }
+
+
     /*Fisiques*/
 
     private monsterTouchesPlayer(player:Phaser.Sprite, monster:Phaser.Sprite) {
@@ -284,17 +314,19 @@ class mainState extends Phaser.State {
 
         player.damage(1);
 
-        /*this.livesText.setText("Lives: " + this.player.health);*/
+        this.game.player.lives -=1; //observer
+        this.game.player.notify();
+        console.log("en el monster:" +this.game.player.getScore(),this.game.player.getLives());
 
         this.blink(player);
 
-        /*if (player.health == 0) {
-            this.stateText.text = " GAME OVER \n Click to restart";
-            this.stateText.visible = true;
+        if (player.health == 0) {
+            this.game.stateText.text = " GAME OVER \n Click to restart";
+            this.game.stateText.visible = true;
 
             //the "click to restart" handler
             this.input.onTap.addOnce(this.restart, this);
-        }*/
+        }
     }
 
     private bulletHitWall(bullet:Phaser.Sprite, walls:Phaser.TilemapLayer) {
@@ -307,13 +339,15 @@ class mainState extends Phaser.State {
         monster.damage(4);
 
 
+
         this.explosion(bullet.x, bullet.y);
 
         if (monster.health > 0) {
             this.blink(monster)
         } else {
-            /*this.score += 10;
-            this.scoreText.setText("Score: " + this.score);*/
+            this.game.player.score +=10; //observer
+            this.game.player.notify();
+            console.log("en el bullet:" +this.game.player.getScore(),this.game.player.getLives());
             monster.kill()
         }
     }
@@ -335,8 +369,6 @@ class mainState extends Phaser.State {
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
 
-
-
         this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
         this.physics.arcade.collide(this.game.player, this.game.walls);
         this.physics.arcade.overlap(this.game.bullets, this.game.monsters, this.bulletHitMonster, null, this);
@@ -345,36 +377,11 @@ class mainState extends Phaser.State {
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
 
     };
-}
 
-
-
-
-
-
-
-
-// OBSERVER: Notificació de puntuació al player.
-
-class Player extends Phaser.Sprite{
-    game:ShooterGame;
-    score:number;
-    max_lives = 3;
-
-    constructor(lives:number, game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture, frame:string|number){
-        super(game, x, y, key, frame);
-        this.game = game;
-
-        this.score = 0;
-        this.anchor.setTo(0.5, 0.5);
-        this.health = lives;
-        this.game.physics.enable(this, Phaser.Physics.ARCADE);
-        this.body.maxVelocity.setTo(this.game.PLAYER_MAX_SPEED, this.game.PLAYER_MAX_SPEED);
-        this.body.collideWorldBounds = true;
-        this.body.drag.setTo(this.game.PLAYER_DRAG, this.game.PLAYER_DRAG);
+    restart() {
+        this.game.state.restart();
     }
 }
-
 
 //FACTORY: Creació de monstres
 
@@ -404,6 +411,7 @@ class Monster extends Phaser.Sprite{
     resetMonster(monster:Phaser.Sprite) {
         monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
     }
+
 }
 
 class MonsterFactory{
@@ -482,8 +490,105 @@ class Zombie2 extends Monster implements atacEspecial{
     }
 }
 
-//STRATEGY: Els zombies fan coses diferents.
+//STRATEGY: Els zombies acceleren la velocitat en tant estan a prop de morir.
 
 interface atacEspecial {
     superAtac();
 }
+
+
+// OBSERVER: Notificació de puntuació al player.
+
+interface Publisher{ //publicador
+    suscribe(displayStats);
+    notify();
+}
+
+class Player extends Phaser.Sprite implements Publisher{
+    game:ShooterGame;
+    score:number;
+    lives:number;
+    max_lives = 3;
+    displayStats:DisplayStats;
+
+    constructor(score:number,lives:number, game:ShooterGame, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture, frame:string|number){
+        super(game, x, y, key, frame);
+        this.game = game;
+
+        this.anchor.setTo(0.5, 0.5);
+        this.score=score;
+        this.lives = lives;
+        this.health = this.lives;
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.body.maxVelocity.setTo(this.game.PLAYER_MAX_SPEED, this.game.PLAYER_MAX_SPEED);
+        this.body.collideWorldBounds = true;
+        this.body.drag.setTo(this.game.PLAYER_DRAG, this.game.PLAYER_DRAG);
+        this.displayStats = new DisplayStats(this);
+    }
+
+    suscribe(displayStats:DisplayStats){
+        this.displayStats = displayStats;
+        console.log("en el subscribe:" +this.getScore(),this.getLives());
+    }
+
+    notify(){
+        this.displayStats.updateStats(this.getScore(), this.getLives());
+    }
+
+    getScore():number{
+        return this.score;
+    }
+
+    getLives():number{
+        return this.lives;
+    }
+}
+
+interface Observer{ //observer
+    updateStats(points:number, lives:number);
+}
+
+class DisplayStats implements Observer{ //display
+    game:ShooterGame;
+    points:number;
+    lives:number;
+    player:Player;
+
+
+    constructor(player:Player){
+        this.player = player;
+        this.player.suscribe(this);
+    }
+    public displayPoints(){
+
+        console.log("puntos: ", this.points);
+
+        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.points, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+    }
+
+    public displayLives(){
+
+        console.log("vidas: ", this.lives);
+
+        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.lives, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+    }
+
+    updateStats(points:number, lives:number){
+        this.points = points;
+        this.lives = lives;
+        this.displayPoints();
+        this.displayLives();
+    }
+}
+
+
+
+
+
+

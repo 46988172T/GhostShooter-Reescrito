@@ -965,6 +965,7 @@ var ShooterGame = (function (_super) {
     function ShooterGame() {
         _super.call(this, 1000, 1000, Phaser.CANVAS, 'gameDiv');
         this.nextFire = 0;
+        this.TEXT_MARGIN = 50;
         this.PLAYER_ACCELERATION = 500;
         this.PLAYER_MAX_SPEED = 300;
         this.PLAYER_DRAG = 600;
@@ -1016,6 +1017,7 @@ var mainState = (function (_super) {
         this.createWalls();
         this.createBackground();
         this.createPlayer();
+        this.createTexts();
         this.setupCamera();
         this.createExplosions();
         this.createBullets();
@@ -1044,7 +1046,7 @@ var mainState = (function (_super) {
     ;
     /*Creació del jugador*/
     mainState.prototype.createPlayer = function () {
-        var nouJugador = new Player(3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
+        var nouJugador = new Player(0, 3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
         this.game.player = this.add.existing(nouJugador);
     };
     mainState.prototype.setupCamera = function () {
@@ -1167,7 +1169,7 @@ var mainState = (function (_super) {
         this.game.bullets.setAll('checkWorldBounds', true);
     };
     ;
-    // Creació de monstres
+    /*Creació de monstres*/
     mainState.prototype.createMonsters = function () {
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
@@ -1189,19 +1191,39 @@ var mainState = (function (_super) {
     mainState.prototype.resetMonster = function (monster) {
         monster.rotation = this.physics.arcade.angleBetween(monster, this.game.player);
     };
+    /* Creació de textos */
+    mainState.prototype.createTexts = function () {
+        var width = this.scale.bounds.width;
+        var height = this.scale.bounds.height;
+        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.game.player.getScore(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.scoreText.fixedToCamera = true;
+        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+        this.game.livesText.anchor.setTo(1, 0);
+        this.game.livesText.fixedToCamera = true;
+        this.game.stateText = this.add.text(width / 2, height / 2, '', { font: '84px Arial', fill: '#fff' });
+        this.game.stateText.anchor.setTo(0.5, 0.5);
+        this.game.stateText.fixedToCamera = true;
+    };
     /*Fisiques*/
     mainState.prototype.monsterTouchesPlayer = function (player, monster) {
         monster.kill();
         player.damage(1);
-        /*this.livesText.setText("Lives: " + this.player.health);*/
+        this.game.player.lives -= 1; //observer
+        this.game.player.notify();
+        console.log("en el monster:" + this.game.player.getScore(), this.game.player.getLives());
         this.blink(player);
-        /*if (player.health == 0) {
-            this.stateText.text = " GAME OVER \n Click to restart";
-            this.stateText.visible = true;
-
+        if (player.health == 0) {
+            this.game.stateText.text = " GAME OVER \n Click to restart";
+            this.game.stateText.visible = true;
             //the "click to restart" handler
             this.input.onTap.addOnce(this.restart, this);
-        }*/
+        }
     };
     mainState.prototype.bulletHitWall = function (bullet, walls) {
         this.explosion(bullet.x, bullet.y);
@@ -1215,8 +1237,9 @@ var mainState = (function (_super) {
             this.blink(monster);
         }
         else {
-            /*this.score += 10;
-            this.scoreText.setText("Score: " + this.score);*/
+            this.game.player.score += 10; //observer
+            this.game.player.notify();
+            console.log("en el bullet:" + this.game.player.getScore(), this.game.player.getLives());
             monster.kill();
         }
     };
@@ -1240,25 +1263,11 @@ var mainState = (function (_super) {
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
     };
     ;
+    mainState.prototype.restart = function () {
+        this.game.state.restart();
+    };
     return mainState;
 })(Phaser.State);
-// OBSERVER: Notificació de puntuació al player.
-var Player = (function (_super) {
-    __extends(Player, _super);
-    function Player(lives, game, x, y, key, frame) {
-        _super.call(this, game, x, y, key, frame);
-        this.max_lives = 3;
-        this.game = game;
-        this.score = 0;
-        this.anchor.setTo(0.5, 0.5);
-        this.health = lives;
-        this.game.physics.enable(this, Phaser.Physics.ARCADE);
-        this.body.maxVelocity.setTo(this.game.PLAYER_MAX_SPEED, this.game.PLAYER_MAX_SPEED);
-        this.body.collideWorldBounds = true;
-        this.body.drag.setTo(this.game.PLAYER_DRAG, this.game.PLAYER_DRAG);
-    }
-    return Player;
-})(Phaser.Sprite);
 //FACTORY: Creació de monstres
 var Monster = (function (_super) {
     __extends(Monster, _super);
@@ -1354,4 +1363,62 @@ var Zombie2 = (function (_super) {
     };
     return Zombie2;
 })(Monster);
+var Player = (function (_super) {
+    __extends(Player, _super);
+    function Player(score, lives, game, x, y, key, frame) {
+        _super.call(this, game, x, y, key, frame);
+        this.max_lives = 3;
+        this.game = game;
+        this.anchor.setTo(0.5, 0.5);
+        this.score = score;
+        this.lives = lives;
+        this.health = this.lives;
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.body.maxVelocity.setTo(this.game.PLAYER_MAX_SPEED, this.game.PLAYER_MAX_SPEED);
+        this.body.collideWorldBounds = true;
+        this.body.drag.setTo(this.game.PLAYER_DRAG, this.game.PLAYER_DRAG);
+        this.displayStats = new DisplayStats(this);
+    }
+    Player.prototype.suscribe = function (displayStats) {
+        this.displayStats = displayStats;
+        console.log("en el subscribe:" + this.getScore(), this.getLives());
+    };
+    Player.prototype.notify = function () {
+        this.displayStats.updateStats(this.getScore(), this.getLives());
+    };
+    Player.prototype.getScore = function () {
+        return this.score;
+    };
+    Player.prototype.getLives = function () {
+        return this.lives;
+    };
+    return Player;
+})(Phaser.Sprite);
+var DisplayStats = (function () {
+    function DisplayStats(player) {
+        this.player = player;
+        this.player.suscribe(this);
+    }
+    DisplayStats.prototype.displayPoints = function () {
+        console.log("puntos: ", this.points);
+        this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.points, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+    };
+    DisplayStats.prototype.displayLives = function () {
+        console.log("vidas: ", this.lives);
+        this.game.livesText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.lives, {
+            font: "30px Arial",
+            fill: "#ffffff"
+        });
+    };
+    DisplayStats.prototype.updateStats = function (points, lives) {
+        this.points = points;
+        this.lives = lives;
+        this.displayPoints();
+        this.displayLives();
+    };
+    return DisplayStats;
+})();
 //# sourceMappingURL=main.js.map
