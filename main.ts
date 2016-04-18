@@ -21,7 +21,7 @@ class ShooterGame extends Phaser.Game{
     maxLivesText:Phaser.Text;
     stateText:Phaser.Text;
     levelText:Phaser.Text;
-    levelFinished:boolean;
+    levelFinished:boolean = false;
 
     cursors:Phaser.CursorKeys;
     gamepad:Gamepads.GamePad;
@@ -87,16 +87,17 @@ class mainState extends Phaser.State {
     create():void {
         super.create();
 
+
         this.createTilemap();
         this.createWalls();
         this.createBackground();
         this.createVida();
         this.createPlayer();
-        this.createTexts();
         this.setupCamera();
         this.createExplosions();
         this.createBullets();
         this.createMonsters();
+        this.createTexts();
 
         if (!this.game.device.desktop) {
 
@@ -275,13 +276,13 @@ class mainState extends Phaser.State {
     private createMonsters(){
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
-        for (var i=0; i<7; i++){
+        for (var i=0; i<this.game.level; i++){
             this.newMonster(factory.createMonster('robot'));
         }
-        for (var i=0; i<7; i++){
+        for (var i=0; i<this.game.level; i++){
             this.newMonster(factory.createMonster('zombie1'));
         }
-        for (var i=0; i<7; i++){
+        for (var i=0; i<this.game.level; i++){
             this.newMonster(factory.createMonster('zombie2'));
         }
     };
@@ -333,23 +334,6 @@ class mainState extends Phaser.State {
         this.game.stateText.fixedToCamera = true;
     }
 
-    uploadText(){
-        this.game.scoreText.setText('Score: ' + this.game.player.getScore());
-        this.game.livesText.setText('Lives: ' + this.game.player.getLives());
-        this.game.maxLivesText.setText('MaxLives: '+ this.game.player.getMaxLives());
-        if(this.game.levelFinished == true) {
-            this.game.level = this.game.level+1;
-            this.game.levelFinished = false;
-            this.game.stateText.text = " NEXT LEVEL: "+this.game.level+" \n Click to restart";
-            this.game.stateText.visible = true;
-
-            //the "click to restart" handler
-            this.input.onTap.addOnce(this.createMonsters, this);
-            this.game.stateText.visible = false;
-        }
-        this.game.levelText.setText('Level: ' + this.game.level);
-    }
-
 
     /*Fisiques*/
 
@@ -358,8 +342,8 @@ class mainState extends Phaser.State {
 
         player.damage(1);
 
-        this.game.player.lives -=1; //observer
-        this.game.player.notify();
+        this.game.player.lives -=1;
+        this.game.player.notify(); //observer
         console.log("en el monster:" +this.game.player.getScore(),this.game.player.getLives());
 
         this.blink(player);
@@ -367,8 +351,6 @@ class mainState extends Phaser.State {
         if (player.health == 0) {
             this.game.stateText.text = " GAME OVER \n Click to restart";
             this.game.stateText.visible = true;
-
-            //the "click to restart" handler
             this.input.onTap.addOnce(this.restart, this);
         }
     }
@@ -404,19 +386,37 @@ class mainState extends Phaser.State {
     }
 
     checkMonsters():number{
-       return this.game.monsters.countLiving();
+        return this.game.monsters.countLiving();
     }
 
-    nextLevel() {
-        if(this.checkMonsters()==0) {
+    checkNextLevel() {
+        if(this.checkMonsters() == 0){
             this.game.levelFinished = true;
         }
+
+        if(this.checkMonsters() == 0 && this.game.levelFinished == true) {
+            this.game.levelFinished = false;
+            this.game.level = this.game.level + 1;
+            this.game.levelText.setText('Level: '+this.game.level);
+            this.createMonsters();
+        }
     }
+
+    nextLevel(){ //ojo
+        if(this.game.levelFinished = true){
+            this.game.levelFinished = false;
+            this.game.level = this.game.level + 1;
+            this.game.levelText.setText('Level: '+this.game.level);
+            this.createMonsters();
+        }
+    }
+
 
     nuevaVida(){
         if(this.game.player.getLives() < this.game.player.getMaxLives()){
             this.game.vida.kill();
             this.game.player.setLives();
+            this.game.player.notify();
             var newX = this.rnd.between(65,535);
             var newY = this.rnd.between(65,800);
             this.game.vida.reset(newX, newY);
@@ -432,8 +432,7 @@ class mainState extends Phaser.State {
         this.movePlayer();
         this.rotatePlayerToPointer();
         this.fireWhenButtonClicked();
-        this.uploadText();//trampa.
-        this.nextLevel();
+        this.checkNextLevel();
 
         this.physics.arcade.collide(this.game.player, this.game.monsters, this.monsterTouchesPlayer, null, this);
         this.physics.arcade.collide(this.game.player, this.game.walls);
@@ -446,6 +445,10 @@ class mainState extends Phaser.State {
     };
 
     restart() {
+        this.game.vida.destroy();
+        this.game.player.destroy();
+        this.game.level = 1;
+        this.game.levelText.setText("Level: "+this.game.level);
         this.game.state.restart();
     }
 }
@@ -466,7 +469,7 @@ class Monster extends Phaser.Sprite{
         this.body.enableBody = true;
         this.angle = game.rnd.angle();
         this.checkWorldBounds = true;
-        this.health = this.MONSTER_HEALTH
+        this.health = this.MONSTER_HEALTH;
         this.body.velocity.setTo(this.MONSTER_SPEED);
         this.checked = false;
     }
@@ -613,11 +616,10 @@ class Player extends Phaser.Sprite implements Publisher{
 
     suscribe(displayStats:DisplayStats){
         this.displayStats = displayStats;
-        console.log("en el subscribe:" +this.getScore(),this.getLives());
     }
 
     notify(){
-        this.displayStats.updateStats(this.getScore(), this.getLives());
+        this.displayStats.updateStats(this.getScore(), this.getLives(), this.getMaxLives());
     }
 
     getScore():number{
@@ -643,13 +645,14 @@ class Player extends Phaser.Sprite implements Publisher{
 }
 
 interface Observer{ //observer
-    updateStats(points:number, lives:number);
+    updateStats(points:number, lives:number, max_lives:number);
 }
 
 class DisplayStats implements Observer{ //display
     game:ShooterGame;
     points:number;
     lives:number;
+    max_lives:number;
     player:Player;
     pointsCheck:number;
     pointsUpdate = 0;
@@ -659,30 +662,36 @@ class DisplayStats implements Observer{ //display
     constructor(player:Player){
         this.player = player;
         this.player.suscribe(this);
+        this.game = this.player.game;
+        this.lives = this.player.lives;
+        this.points = this.player.score;
+        this.max_lives = this.player.max_lives;
     }
 
     public displayData(){
-        console.log("en el display: ", this.points, this.lives);
-        /*this.game.scoreText.setText('Score: ' + this.points);
+
+        this.game.scoreText.setText('Score: ' + this.points);
         this.game.livesText.setText('Lives: ' + this.lives);
-        this.game.maxLivesText.setText('MaxLives: '+ this.player.getMaxLives());*/  //com fem per passar els valors que tenim aqui al text???!
+        this.game.maxLivesText.setText('MaxLives: '+ this.max_lives);
     }
 
-    updateStats(points:number, lives:number){
+    updateStats(points:number, lives:number, max_lives:number){
         this.points = points;
-        this.pointsCheck = points;
         this.lives = lives;
-        this.checkMaxLives(this.pointsCheck); //passem el valor dels punts per saber si podem augmentar la vida màxima.
+        this.max_lives = max_lives;
+
+        this.pointsCheck = points;
+        this.checkMaxLives(this.pointsCheck);
         this.displayData();
     }
 
     checkMaxLives(pointsCheck:number){
-        pointsCheck = pointsCheck - this.pointsUpdate; //els pointsCheck comprovaran si hem fet mes o igual a cent punts. fem la resta per eliminar
-                                                        // punts cada 100. inicial: 100-0:
+        pointsCheck = pointsCheck - this.pointsUpdate;
+
         if(pointsCheck >= 100){
             this.counter += 1;
-            this.player.setMaxLives();                 //suma +1 al maxim de vida
-            this.pointsUpdate = pointsCheck*this.counter;    //pointsUpdate = 100*contador que va sumant. (+1 cada 100)
+            this.player.setMaxLives();
+            this.pointsUpdate = pointsCheck*this.counter;
             console.log("max vida:"+this.player.getMaxLives())
         }
     }
