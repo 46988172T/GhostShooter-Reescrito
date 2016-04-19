@@ -6,6 +6,8 @@ window.onload = () => {
    new ShooterGame();
 };
 class ShooterGame extends Phaser.Game{
+	
+	// Declarem les variables i les constants fora del mainState per poder fer els patrons.
     player:Player;
     monsters:Phaser.Group;
     bullets:Phaser.Group;
@@ -84,9 +86,10 @@ class mainState extends Phaser.State {
         }
     }
 
+	
+	// Per organitzar millor el codi hem decidit fer un unic create(), cridant a les funcions que creen els elements del joc.
     create():void {
         super.create();
-
 
         this.createTilemap();
         this.createWalls();
@@ -98,12 +101,9 @@ class mainState extends Phaser.State {
         this.createBullets();
         this.createMonsters();
         this.createTexts();
-
-        if (!this.game.device.desktop) {
-
-        }
     }
 
+	
     /*Creació de parets i fons.*/
     private createTilemap() {
         this.game.tilemap = this.game.add.tilemap('tilemap');
@@ -124,14 +124,15 @@ class mainState extends Phaser.State {
         this.game.background.y = this.game.world.centerY;
     };
 
-    /* Creació vida */
-
+	
+    /* Creació de sprite de recuperació de vida */
     createVida() {
         this.game.vida = this.add.sprite(this.rnd.between(65, 535), this.rnd.between(65, 535), 'vida');
         this.game.vida.anchor.setTo(0.5, 0.5);
         this.physics.enable(this.game.vida, Phaser.Physics.ARCADE);
     }
 
+	
     /*Creació del jugador*/
     private createPlayer() {
         var nouJugador = new Player(0, 3, this.game, this.world.centerX, this.world.centerY, 'player', 0);
@@ -142,6 +143,7 @@ class mainState extends Phaser.State {
         this.camera.follow(this.game.player);
     };
 
+	
     /*Moviment del jugador*/
     movePlayer(){
         var moveWithKeyboard = function (){
@@ -272,10 +274,11 @@ class mainState extends Phaser.State {
 
 
     /*Creació de monstres*/
-
     private createMonsters(){
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
+		
+		// El número de monstres creats depen del nivell en el qual s'estigui: 1 monstre de cada per al nivell 1, 2 de cada per al 2, etc...
         for (var i=0; i<this.game.level; i++){
             this.newMonster(factory.createMonster('robot'));
         }
@@ -298,16 +301,18 @@ class mainState extends Phaser.State {
 
 
     /* Creació de textos */
-
     private createTexts() {
         var width = this.scale.bounds.width;
         var height = this.scale.bounds.height;
 
+		//Text que indica la puntuació del player
         this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.game.player.getScore(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.scoreText.fixedToCamera = true;
+		
+		//Text que indica vides actuals del player.
         this.game.livesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
             font: "30px Arial",
             fill: "#ffffff"
@@ -315,6 +320,7 @@ class mainState extends Phaser.State {
         this.game.livesText.anchor.setTo(1, 0);
         this.game.livesText.fixedToCamera = true;
 
+		//Text que indica el màxim de vides possibles
         this.game.maxLivesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN+20, 'Max Lives: ' + this.game.player.getMaxLives(), {
             font: "30px Arial",
             fill: "#ffffff"
@@ -322,13 +328,15 @@ class mainState extends Phaser.State {
         this.game.maxLivesText.anchor.setTo(1, 0);
         this.game.maxLivesText.fixedToCamera = true;
 
+		//Text que indica nivell
         this.game.levelText = this.game.add.text(width/2 , this.game.TEXT_MARGIN, 'Level: ' + this.game.level, {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.levelText.anchor.setTo(1, 0);
         this.game.levelText.fixedToCamera = true;
-
+		
+		//Text que indica el Game Over.
         this.game.stateText = this.add.text(width / 2, height / 2, '', {font: '84px Arial', fill: '#fff'});
         this.game.stateText.anchor.setTo(0.5, 0.5);
         this.game.stateText.fixedToCamera = true;
@@ -336,16 +344,15 @@ class mainState extends Phaser.State {
 
 
     /*Fisiques*/
-
     private monsterTouchesPlayer(player:Phaser.Sprite, monster:Phaser.Sprite) {
         monster.kill();
 
         player.damage(1);
 
+		//Aqui restem 1 de vida quan un monstre toca al player, i seguidament fa el notify() --> OBSERVER.
         this.game.player.lives -=1;
-        this.game.player.notify(); //observer
-        console.log("en el monster:" +this.game.player.getScore(),this.game.player.getLives());
-
+        this.game.player.notify(); 
+       
         this.blink(player);
 
         if (player.health == 0) {
@@ -369,9 +376,11 @@ class mainState extends Phaser.State {
         if (monster.health > 0) {
             this.blink(monster)
         } else {
-            this.game.player.score +=10; //observer
+			//Aqui sumem 10 de puntuacio quan una bala toca al monstre i el deixa en zero o negatiu de vida, 
+			//i seguidament fa el notify() --> OBSERVER.
+            this.game.player.score +=10; 
             this.game.player.notify();
-            console.log("en el bullet:" +this.game.player.getScore(),this.game.player.getLives());
+            
             monster.kill()
         }
     }
@@ -385,6 +394,12 @@ class mainState extends Phaser.State {
         tween.start();
     }
 
+	/*
+	 *	Aquestes tres funcions son pel canvi de nivell, l'update verifica amb checkNextLevel(): si checkMonsters() retorna zero, que
+	 *	vol dir que no hi ha monstres a la pantalla, checkNextLevel() indica amb un boolea en true que s'ha finalitzat el nivell. 
+	 *	Immediatament verifica les dues coses (sense monstres i levelfinished = true), el posa a false, puja la variable level en +1,
+	 *	canvia el levelText indicant el valor actual de la variable level, i torna a crear monstres.
+	 */
     checkMonsters():number{
         return this.game.monsters.countLiving();
     }
@@ -402,7 +417,7 @@ class mainState extends Phaser.State {
         }
     }
 
-    nextLevel(){ //ojo
+    nextLevel(){ 
         if(this.game.levelFinished = true){
             this.game.levelFinished = false;
             this.game.level = this.game.level + 1;
@@ -410,9 +425,10 @@ class mainState extends Phaser.State {
             this.createMonsters();
         }
     }
+	
+	// Verifica si pot sumar una vida al playerquan hi ha overlap del player i l'sprite de vida. Si es aixi, suma 1 de vida i crea un altre sprite de vida.
 
-
-    nuevaVida(){
+    addLife(){
         if(this.game.player.getLives() < this.game.player.getMaxLives()){
             this.game.vida.kill();
             this.game.player.setLives();
@@ -421,10 +437,7 @@ class mainState extends Phaser.State {
             var newY = this.rnd.between(65,800);
             this.game.vida.reset(newX, newY);
 
-        }else{
-
         }
-
     }
 
     update():void{
@@ -440,10 +453,14 @@ class mainState extends Phaser.State {
         this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
         this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
-        this.physics.arcade.overlap(this.game.player, this.game.vida, this.nuevaVida, null, this);
+        this.physics.arcade.overlap(this.game.player, this.game.vida, this.addLife, null, this);
 
     };
 
+	/*
+	 *	Al restart, per a que no guardi dades del player, ni del level, hem de posar les variables com a l'inici. 
+	 *	Destruim l'stone de vida i el player i el nivell torna a 1, aixi com canvi al levelText.
+	 */
     restart() {
         this.game.vida.destroy();
         this.game.player.destroy();
@@ -454,6 +471,11 @@ class mainState extends Phaser.State {
 }
 
 //FACTORY: Creació de monstres
+
+/*
+ *	És un factory senzill, tenim la classe Monstre, amb els seus atributs, un factory que crea, depenent de l'string que li passem
+ *	un tipus de monstre diferent que extenden de la classe principal, Monstre.
+ */
 
 class Monster extends Phaser.Sprite{
     game:ShooterGame;
@@ -484,9 +506,6 @@ class Monster extends Phaser.Sprite{
     resetMonster(monster:Phaser.Sprite) {
         monster.rotation = this.game.physics.arcade.angleBetween(monster, this.game.player);
     }
-
-
-
 }
 
 class MonsterFactory{
@@ -495,6 +514,8 @@ class MonsterFactory{
     constructor(game:ShooterGame){
         this.game = game;
     }
+	
+	//Crea els monstres depenent de la key que li posem.
     createMonster(key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture):Monster{
         if(key == 'robot'){
             return new Robot(this.game, key);
@@ -578,14 +599,30 @@ class Zombie2 extends Monster implements Gegant{
     }
 }
 
-//STRATEGY: Els zombies acceleren la velocitat en tant estan a prop de morir.
+// STRATEGY: Els zombies es fan més grans en tant estan a prop de morir. 
 
+/*
+ *	Per tant, tenim un canvi en temps d'execució, i tot i que fan el mateix, 
+ *	cadascun podria fer-ne una cosa diferent.
+ */
 interface Gegant {
     enfadat();
 }
 
 
 // OBSERVER: Notificació de puntuació al player.
+
+/*
+ *	Funcionament: El player serà qui tingui la informació, el publicador. Implementa Publisher, que son dos mètodes per subscriure
+ *	i notificar. Com que només hi haurà un suscriptor, del tipus DisplayStats, no necessitem cap array, el passem com a atribut del player i inicialitzem
+ *	al constructor. Seguidament el suscribim a les dades amb el suscribe().
+ *	Per una altra banda tenim la classe de la qual suscriurem una instància, DisplayStats. Aquesta classe implementa la interficie Observer, per a 
+ *	poder fer l'update. 
+ *	Per tant:
+ *	Amb l'inici del joc es crea el player, i aquest crea i suscriu una instancia de DisplayStats. En el moment que canvia alguna de les 3 informacions 
+ *	(punts, vides o màxim de vides) al player, es crida inmediatament al joc al notify(), que el que fa es crida al mètode de la interfície Observer, updateStats()
+ *	que actualitzarà les dades i executarà el mètode displayStats(), que imprimeix als textos la informació actualitzada.
+ */
 
 interface Publisher{ //publicador
     suscribe(displayStats);
@@ -669,7 +706,6 @@ class DisplayStats implements Observer{ //display
     }
 
     public displayData(){
-
         this.game.scoreText.setText('Score: ' + this.points);
         this.game.livesText.setText('Lives: ' + this.lives);
         this.game.maxLivesText.setText('MaxLives: '+ this.max_lives);
@@ -684,7 +720,8 @@ class DisplayStats implements Observer{ //display
         this.checkMaxLives(this.pointsCheck);
         this.displayData();
     }
-
+	
+	// Mètode per a suma +1 al maxim de vides cada 100 punts.
     checkMaxLives(pointsCheck:number){
         pointsCheck = pointsCheck - this.pointsUpdate;
 
@@ -692,7 +729,6 @@ class DisplayStats implements Observer{ //display
             this.counter += 1;
             this.player.setMaxLives();
             this.pointsUpdate = pointsCheck*this.counter;
-            console.log("max vida:"+this.player.getMaxLives())
         }
     }
 }

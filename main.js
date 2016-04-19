@@ -63,6 +63,7 @@ var mainState = (function (_super) {
             this.scale.startFullScreen(true);
         }
     };
+    // Per organitzar millor el codi hem decidit fer un unic create(), cridant a les funcions que creen els elements del joc.
     mainState.prototype.create = function () {
         _super.prototype.create.call(this);
         this.createTilemap();
@@ -75,8 +76,6 @@ var mainState = (function (_super) {
         this.createBullets();
         this.createMonsters();
         this.createTexts();
-        if (!this.game.device.desktop) {
-        }
     };
     /*Creació de parets i fons.*/
     mainState.prototype.createTilemap = function () {
@@ -97,7 +96,7 @@ var mainState = (function (_super) {
         this.game.background.y = this.game.world.centerY;
     };
     ;
-    /* Creació vida */
+    /* Creació de sprite de recuperació de vida */
     mainState.prototype.createVida = function () {
         this.game.vida = this.add.sprite(this.rnd.between(65, 535), this.rnd.between(65, 535), 'vida');
         this.game.vida.anchor.setTo(0.5, 0.5);
@@ -232,6 +231,7 @@ var mainState = (function (_super) {
     mainState.prototype.createMonsters = function () {
         this.game.monsters = this.add.group();
         var factory = new MonsterFactory(this.game);
+        // El número de monstres creats depen del nivell en el qual s'estigui: 1 monstre de cada per al nivell 1, 2 de cada per al 2, etc...
         for (var i = 0; i < this.game.level; i++) {
             this.newMonster(factory.createMonster('robot'));
         }
@@ -254,29 +254,34 @@ var mainState = (function (_super) {
     mainState.prototype.createTexts = function () {
         var width = this.scale.bounds.width;
         var height = this.scale.bounds.height;
+        //Text que indica la puntuació del player
         this.game.scoreText = this.game.add.text(this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Score: ' + this.game.player.getScore(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.scoreText.fixedToCamera = true;
+        //Text que indica vides actuals del player.
         this.game.livesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN, 'Lives: ' + this.game.player.getLives(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.livesText.anchor.setTo(1, 0);
         this.game.livesText.fixedToCamera = true;
+        //Text que indica el màxim de vides possibles
         this.game.maxLivesText = this.game.add.text(width - this.game.TEXT_MARGIN, this.game.TEXT_MARGIN + 20, 'Max Lives: ' + this.game.player.getMaxLives(), {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.maxLivesText.anchor.setTo(1, 0);
         this.game.maxLivesText.fixedToCamera = true;
+        //Text que indica nivell
         this.game.levelText = this.game.add.text(width / 2, this.game.TEXT_MARGIN, 'Level: ' + this.game.level, {
             font: "30px Arial",
             fill: "#ffffff"
         });
         this.game.levelText.anchor.setTo(1, 0);
         this.game.levelText.fixedToCamera = true;
+        //Text que indica el Game Over.
         this.game.stateText = this.add.text(width / 2, height / 2, '', { font: '84px Arial', fill: '#fff' });
         this.game.stateText.anchor.setTo(0.5, 0.5);
         this.game.stateText.fixedToCamera = true;
@@ -285,9 +290,9 @@ var mainState = (function (_super) {
     mainState.prototype.monsterTouchesPlayer = function (player, monster) {
         monster.kill();
         player.damage(1);
+        //Aqui restem 1 de vida quan un monstre toca al player, i seguidament fa el notify() --> OBSERVER.
         this.game.player.lives -= 1;
-        this.game.player.notify(); //observer
-        console.log("en el monster:" + this.game.player.getScore(), this.game.player.getLives());
+        this.game.player.notify();
         this.blink(player);
         if (player.health == 0) {
             this.game.stateText.text = " GAME OVER \n Click to restart";
@@ -307,9 +312,10 @@ var mainState = (function (_super) {
             this.blink(monster);
         }
         else {
-            this.game.player.score += 10; //observer
+            //Aqui sumem 10 de puntuacio quan una bala toca al monstre i el deixa en zero o negatiu de vida, 
+            //i seguidament fa el notify() --> OBSERVER.
+            this.game.player.score += 10;
             this.game.player.notify();
-            console.log("en el bullet:" + this.game.player.getScore(), this.game.player.getLives());
             monster.kill();
         }
     };
@@ -320,6 +326,12 @@ var mainState = (function (_super) {
         tween.repeat(3);
         tween.start();
     };
+    /*
+     *	Aquestes tres funcions son pel canvi de nivell, l'update verifica amb checkNextLevel(): si checkMonsters() retorna zero, que
+     *	vol dir que no hi ha monstres a la pantalla, checkNextLevel() indica amb un boolea en true que s'ha finalitzat el nivell.
+     *	Immediatament verifica les dues coses (sense monstres i levelfinished = true), el posa a false, puja la variable level en +1,
+     *	canvia el levelText indicant el valor actual de la variable level, i torna a crear monstres.
+     */
     mainState.prototype.checkMonsters = function () {
         return this.game.monsters.countLiving();
     };
@@ -342,7 +354,8 @@ var mainState = (function (_super) {
             this.createMonsters();
         }
     };
-    mainState.prototype.nuevaVida = function () {
+    // Verifica si pot sumar una vida al playerquan hi ha overlap del player i l'sprite de vida. Si es aixi, suma 1 de vida i crea un altre sprite de vida.
+    mainState.prototype.addLife = function () {
         if (this.game.player.getLives() < this.game.player.getMaxLives()) {
             this.game.vida.kill();
             this.game.player.setLives();
@@ -350,8 +363,6 @@ var mainState = (function (_super) {
             var newX = this.rnd.between(65, 535);
             var newY = this.rnd.between(65, 800);
             this.game.vida.reset(newX, newY);
-        }
-        else {
         }
     };
     mainState.prototype.update = function () {
@@ -366,9 +377,13 @@ var mainState = (function (_super) {
         this.physics.arcade.collide(this.game.bullets, this.game.walls, this.bulletHitWall, null, this);
         this.physics.arcade.collide(this.game.walls, this.game.monsters, this.resetMonster, null, this);
         this.physics.arcade.collide(this.game.monsters, this.game.monsters, this.resetMonster, null, this);
-        this.physics.arcade.overlap(this.game.player, this.game.vida, this.nuevaVida, null, this);
+        this.physics.arcade.overlap(this.game.player, this.game.vida, this.addLife, null, this);
     };
     ;
+    /*
+     *	Al restart, per a que no guardi dades del player, ni del level, hem de posar les variables com a l'inici.
+     *	Destruim l'stone de vida i el player i el nivell torna a 1, aixi com canvi al levelText.
+     */
     mainState.prototype.restart = function () {
         this.game.vida.destroy();
         this.game.player.destroy();
@@ -379,6 +394,10 @@ var mainState = (function (_super) {
     return mainState;
 })(Phaser.State);
 //FACTORY: Creació de monstres
+/*
+ *	És un factory senzill, tenim la classe Monstre, amb els seus atributs, un factory que crea, depenent de l'string que li passem
+ *	un tipus de monstre diferent que extenden de la classe principal, Monstre.
+ */
 var Monster = (function (_super) {
     __extends(Monster, _super);
     function Monster(game, x, y, key, frame) {
@@ -409,6 +428,7 @@ var MonsterFactory = (function () {
     function MonsterFactory(game) {
         this.game = game;
     }
+    //Crea els monstres depenent de la key que li posem.
     MonsterFactory.prototype.createMonster = function (key) {
         if (key == 'robot') {
             return new Robot(this.game, key);
@@ -549,13 +569,13 @@ var DisplayStats = (function () {
         this.checkMaxLives(this.pointsCheck);
         this.displayData();
     };
+    // Mètode per a suma +1 al maxim de vides cada 100 punts.
     DisplayStats.prototype.checkMaxLives = function (pointsCheck) {
         pointsCheck = pointsCheck - this.pointsUpdate;
         if (pointsCheck >= 100) {
             this.counter += 1;
             this.player.setMaxLives();
             this.pointsUpdate = pointsCheck * this.counter;
-            console.log("max vida:" + this.player.getMaxLives());
         }
     };
     return DisplayStats;
