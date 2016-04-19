@@ -5,6 +5,9 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
+/*
+ *  GitHub: https://github.com/46988172T/GhostShooter-Reescrito
+ */
 var game = PIXI.game;
 window.onload = function () {
     new ShooterGame();

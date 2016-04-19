@@ -1,6 +1,12 @@
 /// <reference path="phaser/phaser.d.ts"/>
 /// <reference path="joypad/GamePad.ts"/>
 
+
+/*
+ *  GitHub: https://github.com/46988172T/GhostShooter-Reescrito
+ */
+
+
 import game = PIXI.game;
 window.onload = () => {
    new ShooterGame();
